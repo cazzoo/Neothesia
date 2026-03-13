@@ -450,6 +450,12 @@ impl super::MenuScene {
                 {
                     ctx.config.set_input(Some(&input));
                     data.selected_input = Some(input.clone());
+
+                    // Reconnect LUMI SysEx output when input selection changes
+                    let port_name = input.to_string();
+                    log::info!("Input selection changed to: '{}', reconnecting LUMI SysEx", port_name);
+                    ctx.output_manager.connect_lumi_by_port_name(&port_name);
+
                     self.popup.close();
                 }
             });
