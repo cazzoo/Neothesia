@@ -124,7 +124,7 @@ impl TopBar {
 
     fn panel_center(this: &mut PlayingScene, ctx: &mut Context, ui: &mut nuon::Ui) {
         let win_w = ctx.window_state.logical_size.width;
-        let pill_w = 45.0 * 2.0;
+        let pill_w = 50.0 * 2.0;
 
         let speed_x = win_w / 2.0 - pill_w - 5.0;
 
@@ -171,14 +171,14 @@ impl TopBar {
                 }
             });
 
-        let gain_x = win_w / 2.0 + 5.0;
+        let gain_x = win_w / 2.0 + 15.0;
 
         nuon::translate()
             .x(gain_x)
             .y(5.0)
             .build(ui, |ui| {
                 if nuon::button()
-                    .size(45.0, 20.0)
+                    .size(50.0, 20.0)
                     .color([67, 67, 67])
                     .hover_color([87, 87, 87])
                     .preseed_color([97, 97, 97])
@@ -192,16 +192,16 @@ impl TopBar {
 
                 nuon::label()
                     .text(format!(
-                        "Gain: {}%",
+                        "{}%",
                         this.runtime_gain_percentage().round()
                     ))
                     .bold(true)
-                    .size(45.0 * 2.0, 20.0)
+                    .size(50.0 * 2.0, 20.0)
                     .build(ui);
 
                 if nuon::button()
-                    .size(45.0, 20.0)
-                    .x(45.0)
+                    .size(50.0, 20.0)
+                    .x(50.0)
                     .color([67, 67, 67])
                     .hover_color([87, 87, 87])
                     .preseed_color([97, 97, 97])
