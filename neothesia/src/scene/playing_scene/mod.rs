@@ -347,9 +347,12 @@ impl PlayingScene {
     }
 
     pub fn adjust_runtime_gain(&mut self, ctx: &mut Context, delta: f32) {
+        log::info!("adjust_runtime_gain called with delta: {}, current value: {}", delta, self.runtime_gain.value());
         self.runtime_gain.adjust(delta);
+        log::info!("After adjust: {}", self.runtime_gain.value());
         ctx.output_manager.set_runtime_gain(self.runtime_gain.value());
         let combined_gain = self.get_combined_gain(ctx);
+        log::info!("Setting combined gain: {}", combined_gain);
         ctx.output_manager.connection().set_gain(combined_gain);
     }
 

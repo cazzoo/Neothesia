@@ -199,6 +199,7 @@ impl TopBar {
                     .text_justify(nuon::TextJustify::Left)
                     .build(ui)
                 {
+                    log::info!("Gain minus button clicked!");
                     this.adjust_runtime_gain(ctx, -0.1);
                     this.toast_manager.gain_toast(this.runtime_gain_percentage());
                 }
@@ -223,6 +224,7 @@ impl TopBar {
                     .text_justify(nuon::TextJustify::Right)
                     .build(ui)
                 {
+                    log::info!("Gain plus button clicked!");
                     this.adjust_runtime_gain(ctx, 0.1);
                     this.toast_manager.gain_toast(this.runtime_gain_percentage());
                 }
