@@ -69,11 +69,8 @@ impl super::MenuScene {
                     });
 
                 // LUMI Hardware section - only visible when LUMI keyboard is connected
-                // Check if we have a valid LUMI connection (not DummyOutput)
-                let has_lumi = !matches!(
-                    ctx.output_manager.lumi_connection(),
-                    crate::output_manager::OutputConnection::DummyOutput
-                );
+                // Check if we have a dedicated LUMI connection (not the fallback)
+                let has_lumi = ctx.output_manager.has_lumi_connection();
 
                 if has_lumi {
                     nuon::settings_section("LUMI Hardware")

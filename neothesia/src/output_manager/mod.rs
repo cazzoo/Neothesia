@@ -245,6 +245,11 @@ impl OutputManager {
         self.lumi_connection = None;
     }
 
+    /// Check if a dedicated LUMI connection is active
+    pub fn has_lumi_connection(&self) -> bool {
+        self.lumi_connection.is_some()
+    }
+
     /// Returns the connection to use for LUMI SysEx.
     /// Prefers the dedicated LUMI connection; falls back to the main output if it is a MIDI port.
     pub fn lumi_connection(&self) -> OutputConnection {
