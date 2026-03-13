@@ -516,22 +516,34 @@ impl PlayAlong {
 
     /// Convert play-along data to ScoreData for display
     pub fn to_score_data(&self) -> ScoreData {
-        let correct_notes = self.stats.played_early.len() + self.stats.played_late.len();
+        let played_early = self.stats.played_early.len();
+        let played_late = self.stats.played_late.len();
+        let played_notes = played_early + played_late;
+        let wrong_notes = self.stats.wrong_notes;
+
+        // Notes correctly played on first attempt (within timing threshold)
+        let too_early = self.stats.count_too_early();
+        let too_late = self.stats.count_too_late();
+        let on_time = (played_early - too_early) + (played_late - too_late);
+
+        // Notes correctly played (including those outside threshold)
+        let correct_notes = played_notes;
+
         // Total required notes throughout the song (tracking cumulative count)
         let total_required_notes = self.total_required_notes;
 
-        // Calculate missed notes: total required - correctly played
-        let played_correctly = correct_notes.saturating_sub(self.stats.wrong_notes);
+        // Missed notes = total required - played correctly
+        let played_correctly = correct_notes.saturating_sub(wrong_notes);
         let missed_notes = total_required_notes.saturating_sub(played_correctly);
 
+        // For score display, we show total required notes
         let total_notes = total_required_notes;
 
-        let too_early = self.stats.count_too_early();
-        let too_late = self.stats.count_too_late();
-        let on_time = correct_notes.saturating_sub(too_early + too_late);
-
-        let accuracy = if total_notes > 0 {
-            (correct_notes as f64 / total_notes as f64) * 100.0
+        // Accuracy based on notes actually played (correct / total played)
+        // If no notes were played, use 0% instead of dividing by zero
+        let accuracy = if played_notes > 0 {
+            let correct = (on_time + too_early + too_late) as f64;
+            (correct / played_notes as f64) * 100.0
         } else {
             0.0
         };

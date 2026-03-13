@@ -92,7 +92,7 @@ pub struct PlayingScene {
 
     player: MidiPlayer,
     lumi: LumiController,
-    saved_color_mode: u8, // Store to restore when exiting API mode
+    saved_color_mode: u8,
     rewind_controller: RewindController,
     quad_renderer_bg: QuadRenderer,
     quad_renderer_fg: QuadRenderer,
@@ -105,6 +105,9 @@ pub struct PlayingScene {
     top_bar: TopBar,
 
     runtime_gain: RuntimeGain,
+
+    // Cache for keyboard gain to avoid redundant set_gain() calls
+    cached_keyboard_gain: Option<f32>,
 }
 
 impl PlayingScene {
@@ -214,6 +217,7 @@ impl PlayingScene {
             top_bar: TopBar::new(),
 
             runtime_gain: RuntimeGain::neutral(),
+            cached_keyboard_gain: None,
         }
     }
 
@@ -570,9 +574,14 @@ impl Scene for PlayingScene {
         }
 
         if keyboard_gain > 0.0 {
-            ctx.output_manager
-                .keyboard_connection()
-                .set_gain(keyboard_gain);
+            // Only call set_gain if the value has changed (performance optimization)
+            if self.cached_keyboard_gain != Some(keyboard_gain) {
+                ctx.output_manager
+                    .keyboard_connection()
+                    .set_gain(keyboard_gain);
+                self.cached_keyboard_gain = Some(keyboard_gain);
+            }
+
             ctx.output_manager
                 .keyboard_connection()
                 .midi_event(u4::new(_channel), *message);
