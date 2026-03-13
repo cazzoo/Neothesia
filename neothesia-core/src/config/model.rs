@@ -277,10 +277,10 @@ impl SynthConfig {
         match self {
             SynthConfig::V1(v1) => {
                 let mut v2 = SynthConfigV2::from(v1.clone());
-                v2.playback_gain = gain;
+                v2.playback_gain = gain.max(0.0);
                 *self = SynthConfig::V2(v2);
             }
-            SynthConfig::V2(v2) => v2.playback_gain = gain,
+            SynthConfig::V2(v2) => v2.playback_gain = gain.max(0.0),
         }
     }
 }
