@@ -127,9 +127,9 @@ impl TopBar {
     fn panel_center(this: &mut PlayingScene, ctx: &mut Context, ui: &mut nuon::Ui) {
         let win_w = ctx.window_state.logical_size.width;
         
-        // Each group: minus button (45px) + label (90px) + plus button (45px) = 180px
-        // Two groups = 360px, gap = 20px, total = 380px
-        let group_w = 180.0;
+        // Each group: label (50px) + minus (35px) + value (50px) + plus (35px) = 170px
+        // Two groups = 340px, gap = 20px, total = 360px
+        let group_w = 170.0;
         let gap = 20.0;
         let total_w = group_w * 2.0 + gap;
         let start_x = (win_w - total_w) / 2.0;
@@ -140,15 +140,18 @@ impl TopBar {
             .x(speed_x)
             .y(5.0)
             .build(ui, |ui| {
+                // Label on left
                 nuon::label()
                     .text("Speed")
-                    .size(180.0, 15.0)
+                    .size(50.0, 20.0)
                     .x(0.0)
                     .build(ui);
 
+                // Buttons start at x=50
                 if nuon::button()
                     .id("speed_minus")
-                    .size(45.0, 20.0)
+                    .size(35.0, 20.0)
+                    .x(50.0)
                     .color([67, 67, 67])
                     .hover_color([87, 87, 87])
                     .preseed_color([97, 97, 97])
@@ -167,13 +170,14 @@ impl TopBar {
                         (ctx.config.speed_multiplier() * 100.0).round()
                     ))
                     .bold(true)
-                    .size(90.0, 20.0)
+                    .size(50.0, 20.0)
+                    .x(85.0)
                     .build(ui);
 
                 if nuon::button()
                     .id("speed_plus")
-                    .size(45.0, 20.0)
-                    .x(45.0)
+                    .size(35.0, 20.0)
+                    .x(135.0)
                     .color([67, 67, 67])
                     .hover_color([87, 87, 87])
                     .preseed_color([97, 97, 97])
@@ -193,15 +197,18 @@ impl TopBar {
             .x(gain_x)
             .y(5.0)
             .build(ui, |ui| {
+                // Label on left
                 nuon::label()
                     .text("Gain")
-                    .size(180.0, 15.0)
+                    .size(50.0, 20.0)
                     .x(0.0)
                     .build(ui);
 
+                // Buttons start at x=50
                 if nuon::button()
                     .id("gain_minus")
-                    .size(45.0, 20.0)
+                    .size(35.0, 20.0)
+                    .x(50.0)
                     .color([67, 67, 67])
                     .hover_color([87, 87, 87])
                     .preseed_color([97, 97, 97])
@@ -220,13 +227,14 @@ impl TopBar {
                         this.runtime_gain_percentage().round()
                     ))
                     .bold(true)
-                    .size(90.0, 20.0)
+                    .size(50.0, 20.0)
+                    .x(85.0)
                     .build(ui);
 
                 if nuon::button()
                     .id("gain_plus")
-                    .size(45.0, 20.0)
-                    .x(45.0)
+                    .size(35.0, 20.0)
+                    .x(135.0)
                     .color([67, 67, 67])
                     .hover_color([87, 87, 87])
                     .preseed_color([97, 97, 97])
