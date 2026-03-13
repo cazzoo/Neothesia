@@ -68,6 +68,49 @@ impl super::MenuScene {
                         self.settings_input_section(ctx, ui, rows, spacer);
                     });
 
+                // LUMI Hardware section - only visible when LUMI keyboard is connected
+                // Check if we have a valid LUMI connection (not DummyOutput)
+                let has_lumi = !matches!(
+                    ctx.output_manager.lumi_connection(),
+                    crate::output_manager::OutputConnection::DummyOutput
+                );
+
+                if has_lumi {
+                    nuon::settings_section("LUMI Hardware")
+                        .width(body_w)
+                        .build(ui, |ui, rows, spacer| {
+                            self::update_lumi_brightness(
+                                ctx,
+                                nuon::settings_row_spin()
+                                    .title("LED Brightness")
+                                    .subtitle(format!(
+                                        "{}%",
+                                        (ctx.config.lumi_brightness() as f32 / 127.0 * 100.0) as u8
+                                    ))
+                                    .id("lumi-brightness")
+                                    .build(ui, rows),
+                            );
+
+                            spacer(ui);
+
+                            self::update_lumi_mode(
+                                ctx,
+                                nuon::settings_row_spin()
+                                    .title("Color Mode")
+                                    .subtitle(match ctx.config.lumi_color_mode() {
+                                        0 => "Rainbow",
+                                        1 => "Single Color",
+                                        2 => "Piano",
+                                        3 => "Night",
+                                        _ => "Unknown",
+                                    }
+                                    .to_string())
+                                    .id("lumi-mode")
+                                    .build(ui, rows),
+                            );
+                        });
+                }
+
                 nuon::settings_section("Note Range")
                     .width(body_w)
                     .build(ui, |ui, rows, spacer| {
@@ -144,36 +187,6 @@ impl super::MenuScene {
                         {
                             ctx.config.set_note_labels(!ctx.config.note_labels());
                         }
-                    });
-
-                nuon::settings_section("LUMI Hardware")
-                    .width(body_w)
-                    .build(ui, |ui, rows, spacer| {
-                        self::update_lumi_brightness(
-                            ctx,
-                            nuon::settings_row_spin()
-                                .title("LED Brightness")
-                                .subtitle(format!("{}%", (ctx.config.lumi_brightness() as f32 / 127.0 * 100.0) as u8))
-                                .id("lumi-brightness")
-                                .build(ui, rows),
-                        );
-
-                        spacer(ui);
-
-                        self::update_lumi_mode(
-                            ctx,
-                            nuon::settings_row_spin()
-                                .title("Color Mode")
-                                .subtitle(match ctx.config.lumi_color_mode() {
-                                    0 => "Rainbow",
-                                    1 => "Single Color",
-                                    2 => "Piano",
-                                    3 => "Night",
-                                    _ => "Unknown",
-                                }.to_string())
-                                .id("lumi-mode")
-                                .build(ui, rows),
-                        );
                     });
             });
     }
