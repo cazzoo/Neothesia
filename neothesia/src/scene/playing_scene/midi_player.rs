@@ -359,6 +359,8 @@ pub struct PlayAlong {
 
     /// Notes required to proggres further in the song
     required_notes: HashMap<NoteId, NotePress>,
+    /// Total count of notes that became required during the song
+    total_required_notes: usize,
     /// List of user key press events that happened in last 500ms,
     /// used for play along leeway logic
     user_pressed_recently: HashMap<NoteId, NotePress>,
@@ -375,6 +377,7 @@ impl PlayAlong {
         Self {
             user_keyboard_range,
             required_notes: Default::default(),
+            total_required_notes: 0,
             user_pressed_recently: Default::default(),
             in_proggres_file_notes: Default::default(),
             user_triggered_notes: Default::default(),
@@ -434,6 +437,11 @@ impl PlayAlong {
                 // Ignore overlapping notes
                 if self.in_proggres_file_notes.contains(&note_id) {
                     return;
+                }
+
+                // Only count new required notes (not updates to existing notes)
+                if !self.required_notes.contains_key(&note_id) {
+                    self.total_required_notes += 1;
                 }
 
                 self.required_notes.insert(note_id, NotePress { timestamp });
@@ -509,10 +517,14 @@ impl PlayAlong {
     /// Convert play-along data to ScoreData for display
     pub fn to_score_data(&self) -> ScoreData {
         let correct_notes = self.stats.played_early.len() + self.stats.played_late.len();
-        // Include both wrong notes AND unplayed required notes
-        let unplayed_notes = self.required_notes.len();
-        let missed_notes = self.stats.wrong_notes + unplayed_notes;
-        let total_notes = correct_notes + missed_notes;
+        // Total required notes throughout the song (tracking cumulative count)
+        let total_required_notes = self.total_required_notes;
+
+        // Calculate missed notes: total required - correctly played
+        let played_correctly = correct_notes.saturating_sub(self.stats.wrong_notes);
+        let missed_notes = total_required_notes.saturating_sub(played_correctly);
+
+        let total_notes = total_required_notes;
 
         let too_early = self.stats.count_too_early();
         let too_late = self.stats.count_too_late();
