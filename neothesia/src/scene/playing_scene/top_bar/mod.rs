@@ -178,59 +178,6 @@ impl TopBar {
                         .set_speed_multiplier(ctx.config.speed_multiplier() + 0.1);
                 }
             });
-
-        let gain_x = win_w / 2.0 + 25.0;
-
-        nuon::translate()
-            .x(gain_x)
-            .y(5.0)
-            .build(ui, |ui| {
-                nuon::label()
-                    .text("Gain")
-                    .size(90.0, 15.0)
-                    .x(22.5)
-                    .build(ui);
-
-                if nuon::button()
-                    .size(45.0, 20.0)
-                    .color([67, 67, 67])
-                    .hover_color([87, 87, 87])
-                    .preseed_color([97, 97, 97])
-                    .border_radius([10.0, 0.0, 0.0, 10.0])
-                    .icon(icons::minus_icon())
-                    .text_justify(nuon::TextJustify::Left)
-                    .build(ui)
-                {
-                    log::info!("Gain minus button clicked!");
-                    this.adjust_runtime_gain(ctx, -0.1);
-                    this.toast_manager.gain_toast(this.runtime_gain_percentage());
-                }
-
-                nuon::label()
-                    .text(format!(
-                        "{}%",
-                        this.runtime_gain_percentage().round()
-                    ))
-                    .bold(true)
-                    .size(45.0 * 2.0, 20.0)
-                    .build(ui);
-
-                if nuon::button()
-                    .size(45.0, 20.0)
-                    .x(45.0)
-                    .color([67, 67, 67])
-                    .hover_color([87, 87, 87])
-                    .preseed_color([97, 97, 97])
-                    .border_radius([0.0, 10.0, 10.0, 0.0])
-                    .icon(icons::plus_icon())
-                    .text_justify(nuon::TextJustify::Right)
-                    .build(ui)
-                {
-                    log::info!("Gain plus button clicked!");
-                    this.adjust_runtime_gain(ctx, 0.1);
-                    this.toast_manager.gain_toast(this.runtime_gain_percentage());
-                }
-            });
     }
 
     fn panel_right(this: &mut PlayingScene, ctx: &mut Context, ui: &mut nuon::Ui) {
@@ -251,6 +198,43 @@ impl TopBar {
                     // For now, we'll update the song config directly
                     let song = this.player.song_mut();
                     song.config.wait_mode = !is_wait_mode;
+                }
+
+                nuon::translate().x(-30.0).add_to_current(ui);
+
+                // Gain control
+                let gain_label = format!("{}%", this.runtime_gain_percentage().round());
+                if nuon::button()
+                    .size(25.0, 20.0)
+                    .color([67, 67, 67])
+                    .hover_color([87, 87, 87])
+                    .preseed_color([97, 97, 97])
+                    .border_radius([5.0, 0.0, 0.0, 5.0])
+                    .icon(icons::minus_icon())
+                    .build(ui)
+                {
+                    log::info!("Gain minus button clicked!");
+                    this.adjust_runtime_gain(ctx, -0.1);
+                    this.toast_manager.gain_toast(this.runtime_gain_percentage());
+                }
+
+                nuon::label()
+                    .text(gain_label)
+                    .size(40.0, 20.0)
+                    .build(ui);
+
+                if nuon::button()
+                    .size(25.0, 20.0)
+                    .color([67, 67, 67])
+                    .hover_color([87, 87, 87])
+                    .preseed_color([97, 97, 97])
+                    .border_radius([0.0, 5.0, 5.0, 0.0])
+                    .icon(icons::plus_icon())
+                    .build(ui)
+                {
+                    log::info!("Gain plus button clicked!");
+                    this.adjust_runtime_gain(ctx, 0.1);
+                    this.toast_manager.gain_toast(this.runtime_gain_percentage());
                 }
 
                 nuon::translate().x(-30.0).add_to_current(ui);
