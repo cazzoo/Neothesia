@@ -29,7 +29,7 @@ pub struct UiState {
     pub selected_input: Option<InputDescriptor>,
 
     // Track last connected LUMI input port to detect changes
-    last_connected_lumi_input: Option<String>,
+    pub last_connected_lumi_input: Option<String>,
 
     pub is_loading: bool,
 
@@ -170,7 +170,8 @@ impl UiState {
                         self.last_connected_lumi_input,
                         current_port_name
                     );
-                    if ctx.output_manager
+                    if ctx
+                        .output_manager
                         .connect_lumi_by_port_name(&current_port_name)
                     {
                         self.last_connected_lumi_input = Some(current_port_name);
@@ -228,6 +229,13 @@ pub fn play_with_config(
     };
 
     let mut song = song.clone();
+
+    // Store the play mode for later use (e.g., determining if score should be shown)
+    song.config.play_mode = match play_mode {
+        PlayMode::Watch => crate::song::PlayMode::Watch,
+        PlayMode::Learn => crate::song::PlayMode::Learn,
+        PlayMode::Play => crate::song::PlayMode::Play,
+    };
 
     song.config.wait_mode = play_mode == PlayMode::Learn;
 
