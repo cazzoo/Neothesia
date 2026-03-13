@@ -369,6 +369,17 @@ impl super::MenuScene {
                     .id("gain")
                     .build(ui, rows),
             );
+
+            spacer(ui);
+
+            self::update_playback_gain(
+                ctx,
+                nuon::settings_row_spin()
+                    .title("Playback Gain")
+                    .subtitle(ctx.config.playback_gain().to_string())
+                    .id("playback_gain")
+                    .build(ui, rows),
+            );
         } else if is_midi {
             spacer(ui);
 
@@ -519,6 +530,21 @@ pub fn update_audio_gain(ctx: &mut Context, kind: nuon::SettingsRowSpinResult) {
 
     ctx.config
         .set_audio_gain((ctx.config.audio_gain() * 10.0).round() / 10.0);
+}
+
+pub fn update_playback_gain(ctx: &mut Context, kind: nuon::SettingsRowSpinResult) {
+    match kind {
+        nuon::SettingsRowSpinResult::Plus | nuon::SettingsRowSpinResult::PlusHeld => {
+            ctx.config.set_playback_gain(ctx.config.playback_gain() + 0.1);
+        }
+        nuon::SettingsRowSpinResult::Minus | nuon::SettingsRowSpinResult::MinusHeld => {
+            ctx.config.set_playback_gain(ctx.config.playback_gain() - 0.1);
+        }
+        nuon::SettingsRowSpinResult::Idle => {}
+    }
+
+    ctx.config
+        .set_playback_gain((ctx.config.playback_gain() * 10.0).round() / 10.0);
 }
 
 pub fn update_range_start(ctx: &mut Context, kind: nuon::SettingsRowSpinResult) {

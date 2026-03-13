@@ -50,6 +50,10 @@ impl RuntimeGain {
         Self::new()
     }
 
+    pub fn from_value(value: f32) -> Self {
+        Self { value: value.clamp(Self::MIN, Self::MAX) }
+    }
+
     pub fn adjust(&mut self, delta: f32) {
         self.value = (self.value + delta).clamp(Self::MIN, Self::MAX);
     }
@@ -178,8 +182,8 @@ impl PlayingScene {
             keyboard.layout(),
         ));
 
-        ctx.output_manager.set_runtime_gain(1.0);
-        let combined_gain = ctx.config.audio_gain() * 1.0;
+        ctx.output_manager.set_runtime_gain(ctx.config.playback_gain());
+        let combined_gain = ctx.config.audio_gain() * ctx.config.playback_gain();
         ctx.output_manager.connection().set_gain(combined_gain);
 
         Self {
@@ -204,7 +208,7 @@ impl PlayingScene {
 
             top_bar: TopBar::new(),
 
-            runtime_gain: RuntimeGain::neutral(),
+            runtime_gain: RuntimeGain::from_value(ctx.config.playback_gain()),
         }
     }
 

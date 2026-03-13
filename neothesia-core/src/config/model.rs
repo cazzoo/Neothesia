@@ -111,6 +111,8 @@ pub struct SynthConfigV2 {
     pub soundfont_index: Option<usize>,
     #[serde(default = "default_audio_gain")]
     pub audio_gain: f32,
+    #[serde(default = "default_playback_gain")]
+    pub playback_gain: f32,
 }
 
 impl From<SynthConfigV1> for SynthConfigV2 {
@@ -120,6 +122,7 @@ impl From<SynthConfigV1> for SynthConfigV2 {
             soundfont_folders: Vec::new(),
             soundfont_index: None,
             audio_gain: v1.audio_gain,
+            playback_gain: default_playback_gain(),
         }
     }
 }
@@ -131,6 +134,7 @@ impl Default for SynthConfigV2 {
             soundfont_folders: Vec::new(),
             soundfont_index: None,
             audio_gain: default_audio_gain(),
+            playback_gain: default_playback_gain(),
         }
     }
 }
@@ -261,6 +265,24 @@ impl SynthConfig {
             SynthConfig::V2(v2) => v2.audio_gain = gain,
         }
     }
+
+    pub fn playback_gain(&self) -> f32 {
+        match self {
+            SynthConfig::V1(_v1) => default_playback_gain(),
+            SynthConfig::V2(v2) => v2.playback_gain,
+        }
+    }
+
+    pub fn set_playback_gain(&mut self, gain: f32) {
+        match self {
+            SynthConfig::V1(v1) => {
+                let mut v2 = SynthConfigV2::from(v1.clone());
+                v2.playback_gain = gain;
+                *self = SynthConfig::V2(v2);
+            }
+            SynthConfig::V2(v2) => v2.playback_gain = gain,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -382,6 +404,10 @@ fn default_note_labels() -> bool {
 
 fn default_audio_gain() -> f32 {
     0.2
+}
+
+fn default_playback_gain() -> f32 {
+    1.0
 }
 
 fn default_vertical_guidelines() -> bool {
