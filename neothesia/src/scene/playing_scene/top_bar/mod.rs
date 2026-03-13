@@ -132,6 +132,12 @@ impl TopBar {
             .x(speed_x)
             .y(5.0)
             .build(ui, |ui| {
+                nuon::label()
+                    .text("Speed")
+                    .size(90.0, 15.0)
+                    .x(22.5)
+                    .build(ui);
+
                 if nuon::button()
                     .size(45.0, 20.0)
                     .color([67, 67, 67])
@@ -177,6 +183,12 @@ impl TopBar {
             .x(gain_x)
             .y(5.0)
             .build(ui, |ui| {
+                nuon::label()
+                    .text("Gain")
+                    .size(100.0, 15.0)
+                    .x(25.0)
+                    .build(ui);
+
                 if nuon::button()
                     .size(50.0, 20.0)
                     .color([67, 67, 67])
@@ -188,6 +200,7 @@ impl TopBar {
                     .build(ui)
                 {
                     this.adjust_runtime_gain(ctx, -0.1);
+                    this.toast_manager.gain_toast(this.runtime_gain_percentage());
                 }
 
                 nuon::label()
@@ -211,6 +224,7 @@ impl TopBar {
                     .build(ui)
                 {
                     this.adjust_runtime_gain(ctx, 0.1);
+                    this.toast_manager.gain_toast(this.runtime_gain_percentage());
                 }
             });
     }
