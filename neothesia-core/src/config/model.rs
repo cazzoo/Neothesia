@@ -406,7 +406,7 @@ fn default_audio_gain() -> f32 {
     0.2
 }
 
-fn default_playback_gain() -> f32 {
+pub fn default_playback_gain() -> f32 {
     1.0
 }
 
