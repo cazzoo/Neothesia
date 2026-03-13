@@ -204,14 +204,15 @@ impl TopBar {
 
                 // Gain control
                 let gain_label = format!("{}%", this.runtime_gain_percentage().round());
-                if nuon::button()
-                    .size(25.0, 20.0)
-                    .color([67, 67, 67])
-                    .hover_color([87, 87, 87])
-                    .preseed_color([97, 97, 97])
-                    .border_radius([5.0, 0.0, 0.0, 5.0])
-                    .icon(icons::minus_icon())
-                    .build(ui)
+if nuon::button()
+    .id("gain_minus")
+    .size(25.0, 20.0)
+    .color([67, 67, 67])
+    .hover_color([87, 87, 87])
+    .preseed_color([97, 97, 97])
+    .border_radius([5.0, 0.0, 0.0, 5.0])
+    .icon(icons::minus_icon())
+    .build(ui)
                 {
                     log::info!("Gain minus button clicked!");
                     this.adjust_runtime_gain(ctx, -0.1);
@@ -223,14 +224,15 @@ impl TopBar {
                     .size(40.0, 20.0)
                     .build(ui);
 
-                if nuon::button()
-                    .size(25.0, 20.0)
-                    .color([67, 67, 67])
-                    .hover_color([87, 87, 87])
-                    .preseed_color([97, 97, 97])
-                    .border_radius([0.0, 5.0, 5.0, 0.0])
-                    .icon(icons::plus_icon())
-                    .build(ui)
+if nuon::button()
+    .id("gain_plus")
+    .size(25.0, 20.0)
+    .color([67, 67, 67])
+    .hover_color([87, 87, 87])
+    .preseed_color([97, 97, 97])
+    .border_radius([0.0, 5.0, 5.0, 0.0])
+    .icon(icons::plus_icon())
+    .build(ui)
                 {
                     log::info!("Gain plus button clicked!");
                     this.adjust_runtime_gain(ctx, 0.1);
