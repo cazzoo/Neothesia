@@ -142,8 +142,8 @@ impl TopBar {
             .build(ui, |ui| {
                 nuon::label()
                     .text("Speed")
-                    .size(90.0, 15.0)
-                    .x(22.5)
+                    .size(180.0, 15.0)
+                    .x(0.0)
                     .build(ui);
 
                 if nuon::button()
@@ -195,8 +195,8 @@ impl TopBar {
             .build(ui, |ui| {
                 nuon::label()
                     .text("Gain")
-                    .size(90.0, 15.0)
-                    .x(22.5)
+                    .size(180.0, 15.0)
+                    .x(0.0)
                     .build(ui);
 
                 if nuon::button()
