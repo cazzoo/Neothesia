@@ -196,28 +196,38 @@ impl OutputManager {
     /// Open a dedicated MIDI output connection to the LUMI device.
     /// Matches by port name (the LUMI appears with identical names on input and output).
     /// This is independent of the main audio output connection.
-    pub fn connect_lumi_by_port_name(&mut self, port_name: &str) {
+    /// Returns `true` if a LUMI connection was successfully established, `false` otherwise.
+    pub fn connect_lumi_by_port_name(&mut self, port_name: &str) -> bool {
         log::info!("Attempting to connect LUMI SysEx output for input port: '{}'", port_name);
         let Some(backend) = &self.midi_backend else { 
             log::error!("No MIDI backend available!");
-            return; 
+            return false; 
         };
         let outputs = backend.get_outputs();
         
         log::debug!("Available MIDI outputs: {}", 
                    outputs.iter().map(|o| o.to_string()).collect::<Vec<_>>().join(", "));
 
+        // Only connect to LUMI output if the selected INPUT is actually a LUMI device.
+        // Must contain "LUMI" in port name (case-insensitive) to be considered LUMI hardware.
+        let port_name_lower = port_name.to_lowercase();
+        if !port_name_lower.contains("lumi") {
+            log::info!("Selected input '{}' is not a LUMI device, disconnecting LUMI connection", port_name);
+            self.disconnect_lumi();
+            return false;
+        }
+
         // The LUMI port name on input and output might differ slightly; try exact match first,
         // then substring match (e.g. "LUMI Keys" appears in both directions).
         let found = outputs.iter().find(|o| o.to_string() == port_name)
             .or_else(|| {
                 log::debug!("No exact match, trying substring match for '{}'", port_name);
-                let lower = port_name.to_lowercase();
                 outputs.iter().find(|o| {
                     let n = o.to_string().to_lowercase();
-                    let matches = n.contains("lumi") || lower.contains(&n) || n.contains(&lower);
+                    // Both input AND output must contain "lumi" for a valid match
+                    let matches = n.contains("lumi");
                     if matches {
-                        log::debug!("Substring match: '{}' contains '{}'", n, lower);
+                        log::debug!("LUMI substring match: '{}' matches '{}'", n, port_name);
                     }
                     matches
                 })
@@ -229,20 +239,28 @@ impl OutputManager {
                 Some(conn) => {
                     self.lumi_connection = Some(conn);
                     log::info!("LUMI SysEx output connected: {}", info);
+                    return true;
                 }
                 None => {
                     log::error!("Failed to connect to LUMI SysEx output: {}", info);
+                    return false;
                 }
             }
         } else {
             log::warn!("LUMI SysEx output not found for input port: '{}'", port_name);
             log::warn!("Available outputs: {}", 
                        outputs.iter().map(|o| o.to_string()).collect::<Vec<_>>().join(", "));
+            return false;
         }
     }
 
     pub fn disconnect_lumi(&mut self) {
         self.lumi_connection = None;
+    }
+
+    /// Check if a dedicated LUMI connection is active
+    pub fn has_lumi_connection(&self) -> bool {
+        self.lumi_connection.is_some()
     }
 
     /// Returns the connection to use for LUMI SysEx.
