@@ -32,6 +32,10 @@ impl ToastManager {
     pub fn offset_toast(&mut self, offset: f32) {
         self.toast(format!("Offset: {}", (offset * 100.0).round() / 100.0));
     }
+
+    pub fn gain_toast(&mut self, percentage: f32) {
+        self.toast(format!("Gain: {}%", (percentage * 100.0).round() / 100.0));
+    }
 }
 
 struct Toast {

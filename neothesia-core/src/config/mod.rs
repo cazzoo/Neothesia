@@ -6,8 +6,10 @@ pub use model::ColorSchemaV1;
 use model::{
     AppearanceConfig, AppearanceConfigV1, DevicesConfig, DevicesConfigV1, History, HistoryV1,
     LayoutConfig, LayoutConfigV1, Model, PlaybackConfig, PlaybackConfigV1, SynthConfig,
-    WaterfallConfig, WaterfallConfigV1,
+    SynthConfigV2, WaterfallConfig, WaterfallConfigV1,
 };
+
+pub use model::default_playback_gain;
 
 fn ron_options() -> ron::Options {
     ron::Options::default()
@@ -207,6 +209,25 @@ impl Config {
         match &mut self.synth_config {
             SynthConfig::V1(v1) => v1.audio_gain = gain.max(0.0),
             SynthConfig::V2(v2) => v2.audio_gain = gain.max(0.0),
+        }
+    }
+
+    pub fn playback_gain(&self) -> f32 {
+        match &self.synth_config {
+            SynthConfig::V1(_v1) => default_playback_gain(),
+            SynthConfig::V2(v2) => v2.playback_gain,
+        }
+    }
+
+    pub fn set_playback_gain(&mut self, gain: f32) {
+        match &mut self.synth_config {
+            SynthConfig::V1(_v1) => {
+                let mut v2 = SynthConfigV2::default();
+                v2.audio_gain = self.audio_gain();
+                v2.playback_gain = gain.max(0.0);
+                self.synth_config = SynthConfig::V2(v2);
+            }
+            SynthConfig::V2(v2) => v2.playback_gain = gain.max(0.0),
         }
     }
 

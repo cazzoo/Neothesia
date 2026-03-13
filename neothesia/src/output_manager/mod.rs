@@ -103,6 +103,10 @@ pub struct OutputManager {
     /// Separate from the audio output so the user can keep the synth for sound
     /// while still driving the LUMI LEDs.
     lumi_connection: Option<midi_backend::MidiOutputConnection>,
+
+    /// Runtime gain multiplier applied on top of config audio_gain
+    /// This is session-only (not persisted)
+    runtime_gain: f32,
 }
 
 impl Default for OutputManager {
@@ -137,6 +141,8 @@ impl OutputManager {
 
             output_connection: (OutputDescriptor::DummyOutput, OutputConnection::DummyOutput),
             lumi_connection: None,
+
+            runtime_gain: 1.0,
         }
     }
 
@@ -299,6 +305,14 @@ impl OutputManager {
         }
         
         Ok(())
+    }
+
+    pub fn set_runtime_gain(&mut self, gain: f32) {
+        self.runtime_gain = gain.clamp(0.0, 2.0);
+    }
+
+    pub fn runtime_gain(&self) -> f32 {
+        self.runtime_gain
     }
 }
 

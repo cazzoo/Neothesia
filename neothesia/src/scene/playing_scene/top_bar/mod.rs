@@ -62,8 +62,10 @@ impl TopBar {
         let h = 75.0;
         let is_hovered = window_state.cursor_logical_position.y < h * 1.7;
 
-        top_bar.is_expanded = is_hovered;
-        top_bar.is_expanded |= top_bar.settings_active;
+        // Always expand the top bar so controls are always accessible
+        top_bar.is_expanded = true;
+        // top_bar.is_expanded = is_hovered;
+        // top_bar.is_expanded |= top_bar.settings_active;
 
         top_bar
             .topbar_expand_animation
@@ -122,16 +124,34 @@ impl TopBar {
         }
     }
 
-    fn panel_center(_this: &mut PlayingScene, ctx: &mut Context, ui: &mut nuon::Ui) {
+    fn panel_center(this: &mut PlayingScene, ctx: &mut Context, ui: &mut nuon::Ui) {
         let win_w = ctx.window_state.logical_size.width;
-        let pill_w = 45.0 * 2.0;
+        
+        // Each group: label (50px) + minus (35px) + value (50px) + plus (35px) = 170px
+        // Two groups = 340px, gap = 20px, total = 360px
+        let group_w = 170.0;
+        let gap = 20.0;
+        let total_w = group_w * 2.0 + gap;
+        let start_x = (win_w - total_w) / 2.0;
 
+        // Speed group
+        let speed_x = start_x;
         nuon::translate()
-            .x(win_w / 2.0 - pill_w / 2.0)
+            .x(speed_x)
             .y(5.0)
             .build(ui, |ui| {
+                // Label on left
+                nuon::label()
+                    .text("Speed")
+                    .size(50.0, 20.0)
+                    .x(0.0)
+                    .build(ui);
+
+                // Buttons start at x=50
                 if nuon::button()
-                    .size(45.0, 20.0)
+                    .id("speed_minus")
+                    .size(35.0, 20.0)
+                    .x(50.0)
                     .color([67, 67, 67])
                     .hover_color([87, 87, 87])
                     .preseed_color([97, 97, 97])
@@ -150,12 +170,14 @@ impl TopBar {
                         (ctx.config.speed_multiplier() * 100.0).round()
                     ))
                     .bold(true)
-                    .size(45.0 * 2.0, 20.0)
+                    .size(50.0, 20.0)
+                    .x(85.0)
                     .build(ui);
 
                 if nuon::button()
-                    .size(45.0, 20.0)
-                    .x(45.0)
+                    .id("speed_plus")
+                    .size(35.0, 20.0)
+                    .x(135.0)
                     .color([67, 67, 67])
                     .hover_color([87, 87, 87])
                     .preseed_color([97, 97, 97])
@@ -166,6 +188,63 @@ impl TopBar {
                 {
                     ctx.config
                         .set_speed_multiplier(ctx.config.speed_multiplier() + 0.1);
+                }
+            });
+
+        // Gain group
+        let gain_x = start_x + group_w + gap;
+        nuon::translate()
+            .x(gain_x)
+            .y(5.0)
+            .build(ui, |ui| {
+                // Label on left
+                nuon::label()
+                    .text("Gain")
+                    .size(50.0, 20.0)
+                    .x(0.0)
+                    .build(ui);
+
+                // Buttons start at x=50
+                if nuon::button()
+                    .id("gain_minus")
+                    .size(35.0, 20.0)
+                    .x(50.0)
+                    .color([67, 67, 67])
+                    .hover_color([87, 87, 87])
+                    .preseed_color([97, 97, 97])
+                    .border_radius([10.0, 0.0, 0.0, 10.0])
+                    .icon(icons::minus_icon())
+                    .text_justify(nuon::TextJustify::Left)
+                    .build(ui)
+                {
+                    this.adjust_runtime_gain(ctx, -0.1);
+                    this.toast_manager.gain_toast(this.runtime_gain_percentage());
+                }
+
+                nuon::label()
+                    .text(format!(
+                        "{}%",
+                        this.runtime_gain_percentage().round()
+                    ))
+                    .bold(true)
+                    .size(50.0, 20.0)
+                    .x(85.0)
+                    .build(ui);
+
+                if nuon::button()
+                    .id("gain_plus")
+                    .size(35.0, 20.0)
+                    .x(135.0)
+                    .color([67, 67, 67])
+                    .hover_color([87, 87, 87])
+                    .preseed_color([97, 97, 97])
+                    .border_radius([0.0, 10.0, 10.0, 0.0])
+                    .icon(icons::plus_icon())
+                    .text_justify(nuon::TextJustify::Right)
+                    .build(ui)
+                {
+                    this.adjust_runtime_gain(ctx, 0.1);
+                    this.toast_manager.gain_toast(this.runtime_gain_percentage());
                 }
             });
     }

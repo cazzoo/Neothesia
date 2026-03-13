@@ -33,6 +33,50 @@ use toast_manager::ToastManager;
 mod animation;
 mod top_bar;
 
+pub struct RuntimeGain {
+    value: f32,
+}
+
+impl RuntimeGain {
+    pub const NEUTRAL: f32 = 1.0;
+    pub const MIN: f32 = 0.0;
+    pub const MAX: f32 = 2.0;
+
+    pub fn new() -> Self {
+        Self { value: Self::NEUTRAL }
+    }
+
+    pub fn neutral() -> Self {
+        Self::new()
+    }
+
+    pub fn from_value(value: f32) -> Self {
+        Self { value: value.clamp(Self::MIN, Self::MAX) }
+    }
+
+    pub fn adjust(&mut self, delta: f32) {
+        self.value = (self.value + delta).clamp(Self::MIN, Self::MAX);
+    }
+
+    pub fn reset(&mut self) {
+        self.value = Self::NEUTRAL;
+    }
+
+    pub fn value(&self) -> f32 {
+        self.value
+    }
+
+    pub fn as_percentage(&self) -> f32 {
+        self.value * 100.0
+    }
+}
+
+impl Default for RuntimeGain {
+    fn default() -> Self {
+        Self::neutral()
+    }
+}
+
 pub struct PlayingScene {
     keyboard: Keyboard,
     waterfall: WaterfallRenderer,
@@ -55,6 +99,8 @@ pub struct PlayingScene {
     mouse_to_midi_state: MouseToMidiEventState,
 
     top_bar: TopBar,
+
+    runtime_gain: RuntimeGain,
 }
 
 impl PlayingScene {
@@ -79,7 +125,6 @@ impl PlayingScene {
             .map(|t| t.track_id)
             .collect();
 
-        // Build track channel configs for waterfall renderer
         let track_channel_configs: Vec<TrackChannelConfig> = song
             .config
             .tracks
@@ -123,11 +168,8 @@ impl PlayingScene {
             ctx.config.separate_channels(),
         );
         let mut lumi = LumiController::new(ctx.output_manager.lumi_connection());
-        // IMPORTANT: Enter API mode FIRST to enable manual per-key LED control
-        // Without this, color mode patterns override our hinting commands
         lumi.begin_api_mode();
         lumi.clear_all();
-        // Brightness still works in API mode, but NOT color mode
         lumi.set_brightness(ctx.config.lumi_brightness());
         waterfall.update(player.time_without_lead_in());
 
@@ -139,6 +181,10 @@ impl PlayingScene {
             &ctx.transform,
             keyboard.layout(),
         ));
+
+        ctx.output_manager.set_runtime_gain(ctx.config.playback_gain());
+        let combined_gain = ctx.config.audio_gain() * ctx.config.playback_gain();
+        ctx.output_manager.connection().set_gain(combined_gain);
 
         Self {
             keyboard,
@@ -161,6 +207,8 @@ impl PlayingScene {
             mouse_to_midi_state: MouseToMidiEventState::default(),
 
             top_bar: TopBar::new(),
+
+            runtime_gain: RuntimeGain::from_value(ctx.config.playback_gain()),
         }
     }
 
@@ -297,6 +345,28 @@ impl PlayingScene {
         self.waterfall
             .resize(&ctx.config, self.keyboard.layout().clone());
     }
+
+    pub fn adjust_runtime_gain(&mut self, ctx: &mut Context, delta: f32) {
+        self.runtime_gain.adjust(delta);
+        ctx.output_manager.set_runtime_gain(self.runtime_gain.value());
+        let combined_gain = self.get_combined_gain(ctx);
+        ctx.output_manager.connection().set_gain(combined_gain);
+    }
+
+    pub fn reset_runtime_gain(&mut self, ctx: &mut Context) {
+        self.runtime_gain.reset();
+        ctx.output_manager.set_runtime_gain(self.runtime_gain.value());
+        let combined_gain = self.get_combined_gain(ctx);
+        ctx.output_manager.connection().set_gain(combined_gain);
+    }
+
+    pub fn get_combined_gain(&self, ctx: &Context) -> f32 {
+        ctx.config.audio_gain() * self.runtime_gain.value()
+    }
+
+    pub fn runtime_gain_percentage(&self) -> f32 {
+        self.runtime_gain.as_percentage()
+    }
 }
 
 impl Scene for PlayingScene {
@@ -393,6 +463,27 @@ impl Scene for PlayingScene {
 
         if event.key_released(Key::Named(NamedKey::Space)) {
             self.player.pause_resume();
+        }
+
+        if let Some(ch) = event.character_released() {
+            match ch {
+                "[" => {
+                    self.adjust_runtime_gain(ctx, -0.1);
+                    self.toast_manager.gain_toast(self.runtime_gain_percentage());
+                }
+                "]" => {
+                    self.adjust_runtime_gain(ctx, 0.1);
+                    self.toast_manager.gain_toast(self.runtime_gain_percentage());
+                }
+                _ => {}
+            }
+        }
+
+        if event.key_released(Key::Named(NamedKey::Backspace))
+            || event.key_released(Key::Named(NamedKey::Delete))
+        {
+            self.reset_runtime_gain(ctx);
+            self.toast_manager.gain_toast(self.runtime_gain_percentage());
         }
 
         handle_settings_input(ctx, &mut self.toast_manager, &mut self.waterfall, event);
