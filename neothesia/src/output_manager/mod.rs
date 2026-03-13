@@ -207,17 +207,25 @@ impl OutputManager {
         log::debug!("Available MIDI outputs: {}", 
                    outputs.iter().map(|o| o.to_string()).collect::<Vec<_>>().join(", "));
 
+        // Only connect to LUMI output if the selected INPUT is actually a LUMI device.
+        // Must contain "LUMI" in port name (case-insensitive) to be considered LUMI hardware.
+        let port_name_lower = port_name.to_lowercase();
+        if !port_name_lower.contains("lumi") {
+            log::info!("Selected input '{}' is not a LUMI device, skipping LUMI connection", port_name);
+            return;
+        }
+
         // The LUMI port name on input and output might differ slightly; try exact match first,
         // then substring match (e.g. "LUMI Keys" appears in both directions).
         let found = outputs.iter().find(|o| o.to_string() == port_name)
             .or_else(|| {
                 log::debug!("No exact match, trying substring match for '{}'", port_name);
-                let lower = port_name.to_lowercase();
                 outputs.iter().find(|o| {
                     let n = o.to_string().to_lowercase();
-                    let matches = n.contains("lumi") || lower.contains(&n) || n.contains(&lower);
+                    // Both input AND output must contain "lumi" for a valid match
+                    let matches = n.contains("lumi") && port_name_lower.contains(&n);
                     if matches {
-                        log::debug!("Substring match: '{}' contains '{}'", n, lower);
+                        log::debug!("LUMI substring match: '{}' matches '{}'", n, port_name);
                     }
                     matches
                 })
