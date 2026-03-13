@@ -137,8 +137,9 @@ impl UiState {
                 // Immediately connect LUMI SysEx output when input is selected
                 let port_name = input.to_string();
                 log::info!("Connecting LUMI SysEx for input port: '{}'", port_name);
-                ctx.output_manager.connect_lumi_by_port_name(&port_name);
-                self.last_connected_lumi_input = Some(port_name);
+                if ctx.output_manager.connect_lumi_by_port_name(&port_name) {
+                    self.last_connected_lumi_input = Some(port_name);
+                }
             } else {
                 if let Some(first) = self.inputs.first() {
                     log::info!(
@@ -149,8 +150,9 @@ impl UiState {
                     // Immediately connect LUMI SysEx output for first available input
                     let port_name = first.to_string();
                     log::info!("Connecting LUMI SysEx for input port: '{}'", port_name);
-                    ctx.output_manager.connect_lumi_by_port_name(&port_name);
-                    self.last_connected_lumi_input = Some(port_name);
+                    if ctx.output_manager.connect_lumi_by_port_name(&port_name) {
+                        self.last_connected_lumi_input = Some(port_name);
+                    }
                 }
             }
         } else {
@@ -168,9 +170,11 @@ impl UiState {
                         self.last_connected_lumi_input,
                         current_port_name
                     );
-                    ctx.output_manager
-                        .connect_lumi_by_port_name(&current_port_name);
-                    self.last_connected_lumi_input = Some(current_port_name);
+                    if ctx.output_manager
+                        .connect_lumi_by_port_name(&current_port_name)
+                    {
+                        self.last_connected_lumi_input = Some(current_port_name);
+                    }
                 }
             }
         }

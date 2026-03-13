@@ -5,3 +5,5 @@
 .DS_Store
 node_modules
 .opencode
+.tmp/
+.tmp-lumi/

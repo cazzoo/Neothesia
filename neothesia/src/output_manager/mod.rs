@@ -196,11 +196,12 @@ impl OutputManager {
     /// Open a dedicated MIDI output connection to the LUMI device.
     /// Matches by port name (the LUMI appears with identical names on input and output).
     /// This is independent of the main audio output connection.
-    pub fn connect_lumi_by_port_name(&mut self, port_name: &str) {
+    /// Returns `true` if a LUMI connection was successfully established, `false` otherwise.
+    pub fn connect_lumi_by_port_name(&mut self, port_name: &str) -> bool {
         log::info!("Attempting to connect LUMI SysEx output for input port: '{}'", port_name);
         let Some(backend) = &self.midi_backend else { 
             log::error!("No MIDI backend available!");
-            return; 
+            return false; 
         };
         let outputs = backend.get_outputs();
         
@@ -211,8 +212,9 @@ impl OutputManager {
         // Must contain "LUMI" in port name (case-insensitive) to be considered LUMI hardware.
         let port_name_lower = port_name.to_lowercase();
         if !port_name_lower.contains("lumi") {
-            log::info!("Selected input '{}' is not a LUMI device, skipping LUMI connection", port_name);
-            return;
+            log::info!("Selected input '{}' is not a LUMI device, disconnecting LUMI connection", port_name);
+            self.disconnect_lumi();
+            return false;
         }
 
         // The LUMI port name on input and output might differ slightly; try exact match first,
@@ -223,7 +225,7 @@ impl OutputManager {
                 outputs.iter().find(|o| {
                     let n = o.to_string().to_lowercase();
                     // Both input AND output must contain "lumi" for a valid match
-                    let matches = n.contains("lumi") && port_name_lower.contains(&n);
+                    let matches = n.contains("lumi");
                     if matches {
                         log::debug!("LUMI substring match: '{}' matches '{}'", n, port_name);
                     }
@@ -237,15 +239,18 @@ impl OutputManager {
                 Some(conn) => {
                     self.lumi_connection = Some(conn);
                     log::info!("LUMI SysEx output connected: {}", info);
+                    return true;
                 }
                 None => {
                     log::error!("Failed to connect to LUMI SysEx output: {}", info);
+                    return false;
                 }
             }
         } else {
             log::warn!("LUMI SysEx output not found for input port: '{}'", port_name);
             log::warn!("Available outputs: {}", 
                        outputs.iter().map(|o| o.to_string()).collect::<Vec<_>>().join(", "));
+            return false;
         }
     }
 
