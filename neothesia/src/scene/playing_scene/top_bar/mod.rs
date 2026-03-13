@@ -179,7 +179,7 @@ impl TopBar {
                 }
             });
 
-        let gain_x = win_w / 2.0 + 15.0;
+        let gain_x = win_w / 2.0 + 25.0;
 
         nuon::translate()
             .x(gain_x)
@@ -187,12 +187,12 @@ impl TopBar {
             .build(ui, |ui| {
                 nuon::label()
                     .text("Gain")
-                    .size(100.0, 15.0)
-                    .x(25.0)
+                    .size(90.0, 15.0)
+                    .x(22.5)
                     .build(ui);
 
                 if nuon::button()
-                    .size(50.0, 20.0)
+                    .size(45.0, 20.0)
                     .color([67, 67, 67])
                     .hover_color([87, 87, 87])
                     .preseed_color([97, 97, 97])
@@ -212,12 +212,12 @@ impl TopBar {
                         this.runtime_gain_percentage().round()
                     ))
                     .bold(true)
-                    .size(50.0 * 2.0, 20.0)
+                    .size(45.0 * 2.0, 20.0)
                     .build(ui);
 
                 if nuon::button()
-                    .size(50.0, 20.0)
-                    .x(50.0)
+                    .size(45.0, 20.0)
+                    .x(45.0)
                     .color([67, 67, 67])
                     .hover_color([87, 87, 87])
                     .preseed_color([97, 97, 97])
