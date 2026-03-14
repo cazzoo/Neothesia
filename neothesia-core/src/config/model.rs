@@ -19,6 +19,8 @@ pub struct Model {
     pub devices: DevicesConfig,
     #[serde(default)]
     pub appearance: AppearanceConfig,
+    #[serde(default)]
+    pub song_library: SongLibraryConfig,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -465,4 +467,118 @@ fn default_color_schema() -> Vec<ColorSchemaV1> {
 
 fn default_output() -> Option<String> {
     Some("Buildin Synth".into())
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Default)]
+pub enum SortPreference {
+    #[default]
+    NameAsc,
+    NameDesc,
+    DifficultyAsc,
+    DifficultyDesc,
+    PlayCountDesc,
+    PlayCountAsc,
+    LastPlayedDesc,
+    LastPlayedAsc,
+    LastScoreDesc,
+    LastScoreAsc,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct FilterState {
+    #[serde(default)]
+    pub difficulty_min: Option<u8>,
+
+    #[serde(default)]
+    pub difficulty_max: Option<u8>,
+
+    #[serde(default)]
+    pub played_only: bool,
+
+    #[serde(default)]
+    pub unplayed_only: bool,
+
+    #[serde(default)]
+    pub search_query: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct SongLibraryConfigV1 {
+    #[serde(default)]
+    pub song_directories: Vec<PathBuf>,
+
+    #[serde(default)]
+    pub sort_preference: SortPreference,
+
+    #[serde(default)]
+    pub filter_state: FilterState,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub enum SongLibraryConfig {
+    V1(SongLibraryConfigV1),
+}
+
+impl Default for SongLibraryConfig {
+    fn default() -> Self {
+        Self::V1(SongLibraryConfigV1::default())
+    }
+}
+
+impl SongLibraryConfig {
+    pub fn song_directories(&self) -> &Vec<PathBuf> {
+        match self {
+            SongLibraryConfig::V1(v1) => &v1.song_directories,
+        }
+    }
+
+    pub fn add_song_directory(&mut self, directory: PathBuf) {
+        match self {
+            SongLibraryConfig::V1(v1) => {
+                if !v1.song_directories.contains(&directory) {
+                    v1.song_directories.push(directory);
+                }
+            }
+        }
+    }
+
+    pub fn remove_song_directory(&mut self, index: usize) {
+        match self {
+            SongLibraryConfig::V1(v1) => {
+                if index < v1.song_directories.len() {
+                    v1.song_directories.remove(index);
+                }
+            }
+        }
+    }
+
+    pub fn set_song_directories(&mut self, directories: Vec<PathBuf>) {
+        match self {
+            SongLibraryConfig::V1(v1) => v1.song_directories = directories,
+        }
+    }
+
+    pub fn sort_preference(&self) -> SortPreference {
+        match self {
+            SongLibraryConfig::V1(v1) => v1.sort_preference,
+        }
+    }
+
+    pub fn set_sort_preference(&mut self, pref: SortPreference) {
+        match self {
+            SongLibraryConfig::V1(v1) => v1.sort_preference = pref,
+        }
+    }
+
+    pub fn filter_state(&self) -> &FilterState {
+        match self {
+            SongLibraryConfig::V1(v1) => &v1.filter_state,
+        }
+    }
+
+    pub fn set_filter_state(&mut self, filter: FilterState) {
+        match self {
+            SongLibraryConfig::V1(v1) => v1.filter_state = filter,
+        }
+    }
 }

@@ -4,9 +4,10 @@ mod model;
 
 pub use model::ColorSchemaV1;
 use model::{
-    AppearanceConfig, AppearanceConfigV1, DevicesConfig, DevicesConfigV1, History, HistoryV1,
-    LayoutConfig, LayoutConfigV1, Model, PlaybackConfig, PlaybackConfigV1, SynthConfig,
-    SynthConfigV2, WaterfallConfig, WaterfallConfigV1,
+    AppearanceConfig, AppearanceConfigV1, DevicesConfig, DevicesConfigV1, FilterState, History,
+    HistoryV1, LayoutConfig, LayoutConfigV1, Model, PlaybackConfig, PlaybackConfigV1,
+    SortPreference, SongLibraryConfig, SynthConfig, SynthConfigV2, WaterfallConfig,
+    WaterfallConfigV1,
 };
 
 pub use model::default_playback_gain;
@@ -46,6 +47,7 @@ impl Model {
             synth_config,
             keyboard_layout,
             appearance,
+            song_library,
         } = config;
 
         Self {
@@ -56,6 +58,7 @@ impl Model {
             keyboard_layout: LayoutConfig::V1(keyboard_layout),
             devices: DevicesConfig::V1(devices),
             appearance: AppearanceConfig::V1(appearance),
+            song_library,
         }
     }
 
@@ -80,6 +83,7 @@ impl Model {
             keyboard_layout: match self.keyboard_layout {
                 LayoutConfig::V1(v) => v,
             },
+            song_library: self.song_library,
         }
     }
 }
@@ -93,6 +97,7 @@ pub struct Config {
     pub synth_config: SynthConfig,
     history: HistoryV1,
     keyboard_layout: LayoutConfigV1,
+    song_library: SongLibraryConfig,
 }
 
 impl Default for Config {
@@ -310,6 +315,38 @@ impl Config {
 
     pub fn set_lumi_brightness(&mut self, brightness: u8) {
         self.playback.lumi_brightness = brightness;
+    }
+
+    pub fn song_directories(&self) -> Vec<PathBuf> {
+        self.song_library.song_directories().clone()
+    }
+
+    pub fn add_song_directory(&mut self, path: PathBuf) {
+        self.song_library.add_song_directory(path);
+        self.save();
+    }
+
+    pub fn remove_song_directory(&mut self, index: usize) {
+        self.song_library.remove_song_directory(index);
+        self.save();
+    }
+
+    pub fn song_library_sort_preference(&self) -> SortPreference {
+        self.song_library.sort_preference()
+    }
+
+    pub fn set_song_library_sort_preference(&mut self, pref: SortPreference) {
+        self.song_library.set_sort_preference(pref);
+        self.save();
+    }
+
+    pub fn song_library_filter(&self) -> &FilterState {
+        self.song_library.filter_state()
+    }
+
+    pub fn set_song_library_filter(&mut self, filter: FilterState) {
+        self.song_library.set_filter_state(filter);
+        self.save();
     }
 
     pub fn save(&self) {

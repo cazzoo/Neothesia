@@ -9,6 +9,7 @@ mod neo_btn;
 use neo_btn::{neo_btn, neo_btn_icon};
 
 mod settings;
+mod song_library;
 mod tracks;
 
 use std::{future::Future, time::Duration};
@@ -77,6 +78,7 @@ pub struct MenuScene {
 
     tracks_scroll: nuon::ScrollState,
     settings_scroll: nuon::ScrollState,
+    song_library_scroll: nuon::ScrollState,
     popup: Popup,
 }
 
@@ -111,6 +113,7 @@ impl MenuScene {
             nuon: nuon::Ui::new(),
             tracks_scroll: nuon::ScrollState::new(),
             settings_scroll: nuon::ScrollState::new(),
+            song_library_scroll: nuon::ScrollState::new(),
             popup: Popup::None,
         }
     }
@@ -135,6 +138,7 @@ impl MenuScene {
             Page::Exit => self.exit_page_ui(ctx, &mut nuon),
             Page::Main => self.main_page_ui(ctx, &mut nuon),
             Page::Settings => self.settings_page_ui(ctx, &mut nuon),
+            Page::SongLibrary => self.song_library_page_ui(ctx, &mut nuon),
             Page::TrackSelection => self.tracks_page_ui(ctx, &mut nuon),
             Page::PlayMode => self.play_mode_page_ui(ctx, &mut nuon),
         }
@@ -218,6 +222,26 @@ impl MenuScene {
                             }
                             nuon::translate().y(h + gap).add_to_current(ui);
                         }
+
+                        let song_count = self.state.song_library_entries.len();
+                        let label = if song_count > 0 {
+                            format!("📚 Song Library ({})", song_count)
+                        } else {
+                            "📚 Song Library".to_string()
+                        };
+
+                        if neo_btn()
+                            .size(w, h)
+                            .label(&label)
+                            .color([180, 140, 100])
+                            .build(ui)
+                        {
+                            let db = &ctx.song_library_db;
+                            self.state.load_song_library(db);
+                            self.state.go_to(Page::SongLibrary);
+                        }
+
+                        nuon::translate().y(h + gap).add_to_current(ui);
 
                         if neo_btn().size(w, h).label("Settings").build(ui) {
                             self.state.go_to(Page::Settings);
@@ -507,10 +531,12 @@ impl Scene for MenuScene {
                     let y = y * 60.0;
                     self.settings_scroll.update(y);
                     self.tracks_scroll.update(y);
+                    self.song_library_scroll.update(y);
                 }
                 winit::event::MouseScrollDelta::PixelDelta(position) => {
                     self.settings_scroll.update(position.y as f32);
                     self.tracks_scroll.update(position.y as f32);
+                    self.song_library_scroll.update(position.y as f32);
                 }
             }
         }
@@ -566,10 +592,26 @@ impl Scene for MenuScene {
                 if event.key_pressed(Key::Character("f")) {
                     state::freeplay(&self.state, ctx);
                 }
+
+                if event.key_pressed(Key::Character("l")) {
+                    let db = &ctx.song_library_db;
+                    self.state.load_song_library(db);
+                    self.state.go_to(Page::SongLibrary);
+                }
             }
             Page::Settings => {
                 if event.key_pressed(Key::Named(NamedKey::Escape)) {
                     self.state.go_back();
+                }
+            }
+            Page::SongLibrary => {
+                if event.key_pressed(Key::Named(NamedKey::Escape)) {
+                    self.state.go_back();
+                }
+
+                if event.key_pressed(Key::Character("r")) {
+                    let db = &ctx.song_library_db;
+                    self.state.load_song_library(db);
                 }
             }
             Page::TrackSelection => {

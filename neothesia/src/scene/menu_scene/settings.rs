@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use crate::{
     context::Context,
     scene::menu_scene::{MsgFn, Popup, icons, neo_btn_icon, on_async},
+    song_library::{SongScanner, SongRepository},
     utils::BoxFuture,
 };
 use nuon::TextJustify;
@@ -184,6 +185,12 @@ impl super::MenuScene {
                         {
                             ctx.config.set_note_labels(!ctx.config.note_labels());
                         }
+                    });
+
+                nuon::settings_section("Song Library")
+                    .width(body_w)
+                    .build(ui, |ui, rows, spacer| {
+                        self.settings_song_library_section(ctx, ui, rows, spacer);
                     });
             });
     }
@@ -484,6 +491,77 @@ impl super::MenuScene {
             .body(|ui, row_w, row_h| self.settings_input_picker(ui, ctx, row_w, row_h))
             .build(ui, rows);
     }
+
+    fn settings_song_library_section(
+        &mut self,
+        ctx: &mut Context,
+        ui: &mut nuon::Ui,
+        rows: &dyn Fn(&mut nuon::Ui, nuon::SettingsRow<'_>),
+        spacer: &dyn Fn(&mut nuon::Ui),
+    ) {
+        let total_song_count = match ctx.song_library_db.song_count() {
+            Ok(count) => count,
+            Err(e) => {
+                log::error!("Failed to get song count from database: {}", e);
+                0
+            }
+        };
+
+        nuon::settings_row()
+            .title("Total Songs")
+            .subtitle(total_song_count.to_string())
+            .build(ui, rows);
+
+        spacer(ui);
+
+        nuon::settings_row()
+            .title("Song Directories")
+            .body(|ui, row_w, row_h| {
+                let w = 115.0;
+                let h = 31.0;
+                if button()
+                    .x(row_w - w)
+                    .y(nuon::center_y(row_h, h))
+                    .size(w, h)
+                    .label("+ Add Directory")
+                    .build(ui)
+                {
+                    self.futures
+                        .push(self::add_song_directory(&mut self.state));
+                }
+            })
+            .build(ui, rows);
+
+        let song_dirs = ctx.config.song_directories();
+        let dir_count = song_dirs.len();
+        for index in 0..dir_count {
+            let dir_path = song_dirs.get(index).unwrap();
+            let dir_name = dir_path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("Unknown");
+
+            spacer(ui);
+
+            let idx = index;
+            nuon::settings_row()
+                .title(format!("Directory {}", idx + 1))
+                .subtitle(dir_name.to_string())
+                .body(|ui, row_w, row_h| {
+                    let w = 75.0;
+                    let h = 31.0;
+                    if button()
+                        .x(row_w - w)
+                        .y(nuon::center_y(row_h, h))
+                        .size(w, h)
+                        .label("Remove")
+                        .build(ui)
+                    {
+                        ctx.config.remove_song_directory(idx);
+                    }
+                })
+                .build(ui, rows);
+        }
+    }
 }
 
 fn keyboard_layout_preview(ctx: &Context, keyboard_w: f32, keyboard_h: f32, ui: &mut nuon::Ui) {
@@ -665,6 +743,31 @@ pub fn add_soundfont_folder(data: &mut UiState) -> BoxFuture<MsgFn> {
 }
 
 async fn add_soundfont_folder_fut() -> Option<PathBuf> {
+    let folder = rfd::AsyncFileDialog::new()
+        .pick_folder()
+        .await;
+
+    if let Some(folder) = folder.as_ref() {
+        log::info!("Folder path = {:?}", folder.path());
+    } else {
+        log::info!("User canceled dialog");
+    }
+
+    folder.map(|f| f.path().to_owned())
+}
+
+pub fn add_song_directory(data: &mut UiState) -> BoxFuture<MsgFn> {
+    data.is_loading = true;
+    on_async(add_song_directory_fut(), |res, data, ctx| {
+        if let Some(directory) = res {
+            ctx.config.add_song_directory(directory.clone());
+            ctx.config.save();
+        }
+        data.is_loading = false;
+    })
+}
+
+async fn add_song_directory_fut() -> Option<PathBuf> {
     let folder = rfd::AsyncFileDialog::new()
         .pick_folder()
         .await;
