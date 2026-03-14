@@ -500,7 +500,7 @@ impl super::MenuScene {
         spacer: &dyn Fn(&mut nuon::Ui),
     ) {
         let scanner = SongScanner::new();
-        let song_dirs = ctx.config.model.song_library.song_directories().clone();
+        let song_dirs = ctx.config.song_directories();
         
         let total_song_count: usize = song_dirs.iter()
             .map(|dir| scanner.scan_directories(&[dir.clone()]).len())
@@ -556,7 +556,7 @@ impl super::MenuScene {
                         .label("Remove")
                         .build(ui)
                     {
-                        ctx.config.model.song_library.remove_song_directory(idx);
+                        ctx.config.remove_song_directory(idx);
                         ctx.config.save();
                     }
                 })
@@ -761,7 +761,7 @@ pub fn add_song_directory(data: &mut UiState) -> BoxFuture<MsgFn> {
     data.is_loading = true;
     on_async(add_song_directory_fut(), |res, data, ctx| {
         if let Some(directory) = res {
-            ctx.config.model.song_library.add_song_directory(directory.clone());
+            ctx.config.add_song_directory(directory.clone());
             ctx.config.save();
         }
         data.is_loading = false;

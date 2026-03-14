@@ -236,9 +236,8 @@ impl MenuScene {
                             .color([180, 140, 100])
                             .build(ui)
                         {
-                            if let Some(db) = &ctx.song_library_db {
-                                self.state.load_song_library(db);
-                            }
+                            let db = &ctx.song_library_db;
+                            self.state.load_song_library(db);
                             self.state.go_to(Page::SongLibrary);
                         }
 
@@ -595,9 +594,8 @@ impl Scene for MenuScene {
                 }
 
                 if event.key_pressed(Key::Character("l")) {
-                    if let Some(db) = &ctx.song_library_db {
-                        self.state.load_song_library(db);
-                    }
+                    let db = &ctx.song_library_db;
+                    self.state.load_song_library(db);
                     self.state.go_to(Page::SongLibrary);
                 }
             }
@@ -612,9 +610,8 @@ impl Scene for MenuScene {
                 }
 
                 if event.key_pressed(Key::Character("r")) {
-                    if let Some(db) = &ctx.song_library_db {
-                        self.state.load_song_library(db);
-                    }
+                    let db = &ctx.song_library_db;
+                    self.state.load_song_library(db);
                 }
             }
             Page::TrackSelection => {

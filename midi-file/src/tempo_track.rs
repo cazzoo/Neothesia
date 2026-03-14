@@ -92,6 +92,10 @@ impl TempoTrack {
         let delta_pulses = event_pulses - previous_absolute_pulses;
         res + pulse_to_duration(delta_pulses, tempo, self.pulses_per_quarter_note)
     }
+
+    pub fn len(&self) -> usize {
+        self.events.len()
+    }
 }
 
 fn pulse_to_duration(pulses: u64, tempo: u32, pulses_per_quarter_note: u16) -> Duration {

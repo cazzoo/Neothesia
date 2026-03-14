@@ -11,13 +11,13 @@ pub enum ParseError {
 }
 
 pub trait MidiParser: Send + Sync {
-    fn parse_metadata(path: &Path) -> Result<crate::song_library::models::SongMetadata, ParseError>;
+    fn parse_metadata(&self, path: &Path) -> Result<crate::song_library::models::SongMetadata, ParseError>;
 }
 
 pub struct MidiFileParser;
 
 impl MidiParser for MidiFileParser {
-    fn parse_metadata(path: &Path) -> Result<crate::song_library::models::SongMetadata, ParseError> {
+    fn parse_metadata(&self, path: &Path) -> Result<crate::song_library::models::SongMetadata, ParseError> {
         let midi = midi_file::MidiFile::new(path).map_err(ParseError::MidiError)?;
 
         let name = path
@@ -34,7 +34,7 @@ impl MidiParser for MidiFileParser {
 
         let track_count = midi.tracks.len();
         let note_count = midi.tracks.iter().map(|t| t.notes.len()).sum();
-        let tempo_changes = midi.tempo_track.events.len();
+        let tempo_changes = midi.tempo_track.len();
 
         Ok(crate::song_library::models::SongMetadata {
             name,

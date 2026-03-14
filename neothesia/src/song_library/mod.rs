@@ -4,9 +4,8 @@ pub mod parser;
 pub mod scanner;
 
 pub use database::{SongRepository, SqliteSongRepository, DatabaseError};
-pub use models::{SongEntry, SongMetadata, SortPreference, FilterState, calculate_difficulty, difficulty_label};
-pub use parser::{MidiParser, MidiFileParser, ParseError};
-pub use scanner::{SongScanner, ScanSummary, ProgressCallback};
+pub use models::{SongEntry, SortPreference, FilterState, difficulty_label};
+pub use scanner::SongScanner;
 
 // Re-export commonly used types
 pub type SongLibraryDatabase = SqliteSongRepository;
@@ -27,13 +26,5 @@ pub fn default_db_path() -> PathBuf {
 pub fn init_song_library() -> Result<SongLibraryDatabase, DatabaseError> {
     let db_path = default_db_path();
     
-    // Ensure parent directory exists
-    if let Some(parent) = db_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| DatabaseError::Sqlite(
-                rusqlite::Error::SqliteSingleThreadedMode
-            ))?;
-    }
-    
-    SongLibraryDatabase::new(&db_path)
+    SongLibraryDatabase::new(db_path)
 }

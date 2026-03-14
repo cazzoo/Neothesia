@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
-use crate::{context::Context, output_manager::OutputDescriptor, song::Song, NeothesiaEvent};
+use crate::{context::Context, output_manager::OutputDescriptor, song::Song, NeothesiaEvent, song_library::SongRepository};
 
 type InputDescriptor = midi_io::MidiInputPort;
 

@@ -28,7 +28,7 @@ pub trait SongRepository: Send + Sync {
     fn list_songs(&self, sort: &SortPreference, filter: &FilterState) -> Result<Vec<SongEntry>>;
     fn update_stats(&self, song_id: i64, score: Option<f32>) -> Result<()>;
     fn song_count(&self) -> Result<usize>;
-    fn scan_directories(&self, directories: &[PathBuf]) -> Result<usize> {
+    fn scan_directories(&self, _directories: &[PathBuf]) -> Result<usize> {
         Ok(0)
     }
 }
@@ -361,7 +361,7 @@ impl SongRepository for SqliteSongRepository {
     fn list_songs(&self, sort: &SortPreference, filter: &FilterState) -> Result<Vec<SongEntry>> {
         let conn = self.get_connection()?;
 
-        let (where_clause, mut params) = Self::build_where_clause(filter);
+        let (where_clause, params) = Self::build_where_clause(filter);
         let order_clause = Self::build_order_clause(sort);
 
         let query = format!(
@@ -415,42 +415,36 @@ impl SongRepository for SqliteSongRepository {
 
         let now = Utc::now().timestamp();
 
-        let tx = conn.unchecked_transaction()?;
-
-        let (play_count, first_played, best_score): (i64, Option<i64>, Option<f32>) = tx.query_row(
-            "SELECT play_count, first_played_at, best_score FROM song_stats WHERE song_id = ?1",
-            params![song_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-        ).unwrap_or((0, None, None));
-
-        let new_play_count = play_count + 1;
-        let new_first_played = first_played.unwrap_or(now);
-        let new_best_score = match (score, best_score) {
-            (Some(s), Some(b)) => Some(s.max(b)),
-            (Some(s), None) => Some(s),
-            (None, b) => b,
-        };
-
-        tx.execute(
+        conn.execute(
             "INSERT INTO song_stats (song_id, play_count, last_score, best_score, last_played_at, first_played_at)
             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             ON CONFLICT(song_id) DO UPDATE SET
-                play_count = excluded.play_count,
-                last_score = excluded.last_score,
-                best_score = excluded.best_score,
+                play_count = play_count + 1,
+                last_score = CASE
+                    WHEN excluded.last_score IS NOT NULL
+                    THEN excluded.last_score
+                    ELSE last_score
+                END,
+                best_score = CASE
+                    WHEN excluded.best_score IS NOT NULL AND (best_score IS NULL OR excluded.best_score > best_score)
+                    THEN excluded.best_score
+                    ELSE best_score
+                END,
                 last_played_at = excluded.last_played_at,
-                first_played_at = excluded.first_played_at",
+                first_played_at = CASE
+                    WHEN first_played_at IS NULL
+                    THEN excluded.first_played_at
+                    ELSE first_played_at
+                END",
             params![
                 song_id,
-                new_play_count,
+                1,
                 score,
-                new_best_score,
+                score,
                 now,
-                new_first_played,
+                now,
             ],
         )?;
-
-        tx.commit()?;
 
         Ok(())
     }
@@ -481,7 +475,7 @@ impl SongRepository for SqliteSongRepository {
             }
         }
         
-        Ok(summary.songs_added + summary.songs_updated)
+        Ok(summary.songs_added)
     }
 }
 

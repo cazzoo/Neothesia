@@ -514,7 +514,7 @@ pub struct SongLibraryConfigV1 {
     pub filter_state: FilterState,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum SongLibraryConfig {
     V1(SongLibraryConfigV1),
 }

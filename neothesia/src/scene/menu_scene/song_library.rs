@@ -1,7 +1,8 @@
 use nuon::TextJustify;
+use std::hash::Hash;
 
 use crate::{context::Context, song::Song, utils::BoxFuture};
-use crate::song_library::{SongEntry, difficulty_label};
+use crate::song_library::{SongEntry, difficulty_label, SongRepository};
 
 use super::{MsgFn, on_async, icons, neo_btn_icon, UiState};
 
@@ -65,7 +66,7 @@ impl super::MenuScene {
                         });
                 } else if self.state.song_library_entries.is_empty() {
                     let content_w = 400.0;
-                    let content_h = 300.0;
+                    let _content_h = 300.0;
 
                     nuon::translate()
                         .x(nuon::center_x(win_w, content_w))
@@ -116,34 +117,34 @@ impl super::MenuScene {
                         .y(margin_top)
                         .add_to_current(ui);
 
-                    let mut entries = self.state.song_library_entries.iter().peekable();
+                    let total_entries = self.state.song_library_entries.len();
+                    let mut entry_idx = 0;
 
                     loop {
-                        let mut end = false;
+                        if entry_idx >= total_entries {
+                            break;
+                        }
+                        
+                        let row_end = (entry_idx + columns).min(total_entries);
+                        
+                        // Clone entries for this row before entering the closure
+                        let row_entries: Vec<SongEntry> = self.state.song_library_entries[entry_idx..row_end].to_vec();
+                        entry_idx = row_end;
+
                         nuon::translate().build(ui, |ui| {
-                            for _ in 0..columns {
-                                let Some(entry) = entries.next() else {
-                                    end = true;
-                                    break;
-                                };
-
-                                self.song_card(ctx, ui, entry, card_w, card_h);
-
+                            for entry in row_entries {
+                                self.song_card(ctx, ui, &entry, card_w, card_h);
                                 nuon::translate().x(card_w + gap).add_to_current(ui);
                             }
                         });
 
                         nuon::translate().y(card_h + gap).add_to_current(ui);
-
-                        if end {
-                            break;
-                        }
                     }
                 }
             });
     }
 
-    fn song_card(&self, ctx: &Context, ui: &mut nuon::Ui, entry: &SongEntry, w: f32, h: f32) {
+    fn song_card(&mut self, _ctx: &Context, ui: &mut nuon::Ui, entry: &SongEntry, w: f32, h: f32) {
         let pad = 16.0;
 
         nuon::quad()

@@ -14,6 +14,7 @@ use self::top_bar::TopBar;
 
 use super::{NuonRenderer, Scene};
 use crate::{
+    song_library::SongRepository,
     context::Context, render::WaterfallRenderer, scene::MouseToMidiEventState, song::Song,
     utils::window::WinitEvent, NeothesiaEvent,
 };
@@ -172,6 +173,8 @@ impl PlayingScene {
             ctx.text_renderer_factory.new_renderer(),
         ));
 
+        // Extract song_id before moving song
+        let current_song_id = song.song_id;
         let player = MidiPlayer::new(
             ctx.output_manager.connection().clone(),
             song,
@@ -197,7 +200,6 @@ impl PlayingScene {
         let midi_file_gain = ctx.config.audio_gain() * ctx.config.playback_gain();
         ctx.output_manager.connection().set_gain(midi_file_gain);
 
-        let current_song_id = song.song_id;
 
         Self {
             keyboard,

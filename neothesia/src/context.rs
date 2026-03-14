@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use crate::{
     NeothesiaEvent, TransformUniform, config::Config, input_manager::InputManager,
-    output_manager::OutputManager, utils::window::WindowState, song_library,
+    output_manager::OutputManager, utils::window::WindowState,
+    song_library::{SongRepository, SongLibraryDatabase, default_db_path, Error as SongLibraryError},
 };
 use neothesia_core::render::{QuadRendererFactory, TextRendererFactory};
 use wgpu_jumpstart::{Gpu, Uniform};
@@ -23,7 +24,7 @@ pub struct Context {
     pub output_manager: OutputManager,
     pub input_manager: InputManager,
     pub config: Config,
-    pub song_library_db: song_library::SongLibraryDatabase,
+    pub song_library_db: SongLibraryDatabase,
 
     pub proxy: EventLoopProxy<NeothesiaEvent>,
 
@@ -58,10 +59,10 @@ impl Context {
         let text_renderer_factory = TextRendererFactory::new(&gpu);
         let quad_renderer_facotry = QuadRendererFactory::new(&gpu, &transform_uniform);
 
-        let song_library_db = song_library::SongLibraryDatabase::with_default_path()
+        let song_library_db = SongLibraryDatabase::with_default_path()
             .unwrap_or_else(|e| {
                 log::error!("Failed to initialize song library: {}", e);
-                song_library::SongLibraryDatabase::new(song_library::default_db_path())
+                SongLibraryDatabase::new(default_db_path())
                     .expect("Failed to create song library database")
             });
 
@@ -107,8 +108,8 @@ impl Context {
         Some(crate::Song::new(midi))
     }
 
-    pub fn refresh_song_library(&self) -> Result<(), song_library::Error> {
-        let song_dirs = self.config.song_library.song_directories().clone();
+    pub fn refresh_song_library(&self) -> Result<(), SongLibraryError> {
+        let song_dirs = self.config.song_directories().clone();
         self.song_library_db.scan_directories(&song_dirs)?;
         Ok(())
     }

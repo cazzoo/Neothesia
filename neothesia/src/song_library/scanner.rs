@@ -56,7 +56,7 @@ impl SongScanner {
         } else if path.is_file() {
             if let Some(ext) = path.extension() {
                 if ext.eq_ignore_ascii_case("mid") || ext.eq_ignore_ascii_case("midi") {
-                    let canonical = path.canonical().unwrap_or_else(|_| path.to_path_buf());
+                    let canonical = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
                     if seen.insert(canonical.clone()) {
                         midi_files.push(canonical);
                     }
