@@ -108,6 +108,9 @@ pub struct PlayingScene {
 
     // Cache for keyboard gain to avoid redundant set_gain() calls
     cached_keyboard_gain: Option<f32>,
+
+    // Track song ID for library statistics updates
+    current_song_id: Option<i64>,
 }
 
 impl PlayingScene {
@@ -194,6 +197,8 @@ impl PlayingScene {
         let midi_file_gain = ctx.config.audio_gain() * ctx.config.playback_gain();
         ctx.output_manager.connection().set_gain(midi_file_gain);
 
+        let current_song_id = song.song_id;
+
         Self {
             keyboard,
             guidelines,
@@ -218,6 +223,7 @@ impl PlayingScene {
 
             runtime_gain: RuntimeGain::neutral(),
             cached_keyboard_gain: None,
+            current_song_id,
         }
     }
 
@@ -467,6 +473,14 @@ impl Scene for PlayingScene {
                 PlayMode::Learn | PlayMode::Play => {
                     // Learn or Play mode - show score screen with performance stats
                     let score_data = self.player.play_along().to_score_data();
+
+                    // Update library statistics if this song came from the library
+                    if let Some(song_id) = self.current_song_id {
+                        if let Err(e) = ctx.song_library_db.update_stats(song_id, Some(score_data.accuracy as f32)) {
+                            log::error!("Failed to update song library stats: {}", e);
+                        }
+                    }
+
                     ctx.proxy
                         .send_event(NeothesiaEvent::ShowScore {
                             song: self.player.song().clone(),

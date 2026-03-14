@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     NeothesiaEvent, TransformUniform, config::Config, input_manager::InputManager,
-    output_manager::OutputManager, utils::window::WindowState,
+    output_manager::OutputManager, utils::window::WindowState, song_library,
 };
 use neothesia_core::render::{QuadRendererFactory, TextRendererFactory};
 use wgpu_jumpstart::{Gpu, Uniform};
@@ -23,6 +23,7 @@ pub struct Context {
     pub output_manager: OutputManager,
     pub input_manager: InputManager,
     pub config: Config,
+    pub song_library_db: song_library::SongLibraryDatabase,
 
     pub proxy: EventLoopProxy<NeothesiaEvent>,
 
@@ -57,6 +58,13 @@ impl Context {
         let text_renderer_factory = TextRendererFactory::new(&gpu);
         let quad_renderer_facotry = QuadRendererFactory::new(&gpu, &transform_uniform);
 
+        let song_library_db = song_library::SongLibraryDatabase::with_default_path()
+            .unwrap_or_else(|e| {
+                log::error!("Failed to initialize song library: {}", e);
+                song_library::SongLibraryDatabase::new(song_library::default_db_path())
+                    .expect("Failed to create song library database")
+            });
+
         Self {
             window,
 
@@ -69,6 +77,7 @@ impl Context {
             output_manager: Default::default(),
             input_manager: InputManager::new(proxy.clone()),
             config,
+            song_library_db,
             proxy,
             frame_timestamp: std::time::Instant::now(),
 
@@ -84,5 +93,23 @@ impl Context {
             self.window_state.scale_factor as f32,
         );
         self.transform.update(&self.gpu.queue);
+    }
+
+    pub fn load_song_from_library(&mut self, song_id: i64) -> Option<crate::Song> {
+        let entry = self.song_library_db.get_song(song_id).ok()??;
+
+        let midi = midi_file::MidiFile::new(&entry.file_path).ok()?;
+
+        self.config
+            .set_last_opened_song(Some(entry.file_path.clone()));
+        self.config.save();
+
+        Some(crate::Song::new(midi))
+    }
+
+    pub fn refresh_song_library(&self) -> Result<(), song_library::Error> {
+        let song_dirs = self.config.song_library.song_directories().clone();
+        self.song_library_db.scan_directories(&song_dirs)?;
+        Ok(())
     }
 }

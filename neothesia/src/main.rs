@@ -6,6 +6,7 @@ mod input_manager;
 mod output_manager;
 mod scene;
 mod song;
+mod song_library;
 mod utils;
 mod lumi_controller;
 

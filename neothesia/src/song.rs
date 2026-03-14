@@ -81,12 +81,13 @@ impl SongConfig {
 pub struct Song {
     pub file: midi_file::MidiFile,
     pub config: SongConfig,
+    pub song_id: Option<i64>,
 }
 
 impl Song {
     pub fn new(file: midi_file::MidiFile) -> Self {
         let config = SongConfig::new(&file.tracks);
-        Self { file, config }
+        Self { file, config, song_id: None }
     }
 
     pub fn from_env(ctx: &Context) -> Option<Self> {

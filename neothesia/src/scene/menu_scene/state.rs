@@ -45,6 +45,12 @@ pub struct UiState {
     // Play mode configuration
     pub play_mode: PlayMode,
     pub hand_selection: HandSelection,
+
+    // Song Library
+    pub song_library_scroll: f32,
+    pub song_library_entries: Vec<crate::song_library::SongEntry>,
+    pub song_library_filter: String,
+    pub song_library_loading: bool,
 }
 
 impl UiState {
@@ -73,6 +79,10 @@ impl UiState {
             current_soundfont_index,
             play_mode: PlayMode::default(),
             hand_selection: HandSelection::default(),
+            song_library_scroll: 0.0,
+            song_library_entries: Vec::new(),
+            song_library_filter: String::new(),
+            song_library_loading: false,
         }
     }
 
@@ -102,6 +112,20 @@ impl UiState {
                 self.page_stack.pop_front();
             }
         }
+    }
+
+    pub fn load_song_library(&mut self, db: &crate::song_library::SongLibraryDatabase) {
+        self.song_library_loading = true;
+        match db.list_songs(&crate::song_library::SortPreference::default(), &crate::song_library::FilterState::default()) {
+            Ok(entries) => self.song_library_entries = entries,
+            Err(e) => eprintln!("Failed to load song library: {}", e),
+        }
+        self.song_library_loading = false;
+    }
+
+    pub fn refresh_song_library(&mut self, db: &crate::song_library::SongLibraryDatabase) {
+        self.song_library_entries.clear();
+        self.load_song_library(db);
     }
 }
 
@@ -187,6 +211,7 @@ pub enum Page {
     Exit,
     Main,
     Settings,
+    SongLibrary,
     TrackSelection,
     PlayMode,
 }
