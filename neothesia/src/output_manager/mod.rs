@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use midi_file::midly::{MidiMessage, num::u4};
+use midi_file::midly::{num::u4, MidiMessage};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum OutputDescriptor {
@@ -104,6 +104,10 @@ pub struct OutputManager {
     /// while still driving the LUMI LEDs.
     lumi_connection: Option<midi_backend::MidiOutputConnection>,
 
+    /// Dedicated MIDI output connection used exclusively for keyboard input.
+    /// Separate from MIDI file playback so keyboard and file gains are independent.
+    keyboard_connection: Option<OutputConnection>,
+
     /// Runtime gain multiplier applied on top of config audio_gain
     /// This is session-only (not persisted)
     runtime_gain: f32,
@@ -141,6 +145,7 @@ impl OutputManager {
 
             output_connection: (OutputDescriptor::DummyOutput, OutputConnection::DummyOutput),
             lumi_connection: None,
+            keyboard_connection: None,
 
             runtime_gain: 1.0,
         }
@@ -168,28 +173,42 @@ impl OutputManager {
                 #[cfg(feature = "synth")]
                 OutputDescriptor::Synth(ref font) => {
                     if let Some(ref mut synth) = self.synth_backend {
-                        if let Some(font) = font.clone() {
-                            self.output_connection = (
-                                desc,
-                                OutputConnection::Synth(synth.new_output_connection(&font)),
-                            );
-                        } else if let Some(path) = crate::utils::resources::default_sf2()
-                            && path.exists()
-                        {
-                            self.output_connection = (
-                                desc,
-                                OutputConnection::Synth(synth.new_output_connection(&path)),
-                            );
-                        }
+                        let soundfont_path = font
+                            .clone()
+                            .or_else(|| crate::utils::resources::default_sf2())
+                            .filter(|p| p.exists());
+
+                        let Some(path) = soundfont_path else {
+                            log::warn!("No SoundFont available for synth output");
+                            return;
+                        };
+
+                        log::info!("Creating dual synth connections");
+
+                        self.output_connection = (
+                            desc.clone(),
+                            OutputConnection::Synth(synth.new_output_connection(&path)),
+                        );
+
+                        self.keyboard_connection =
+                            Some(OutputConnection::Synth(synth.new_output_connection(&path)));
                     }
                 }
                 OutputDescriptor::MidiOut(ref info) => {
-                    if let Some(conn) = MidiBackend::new_output_connection(info) {
-                        self.output_connection = (desc, OutputConnection::Midi(conn));
-                    }
+                    let Some(conn) = MidiBackend::new_output_connection(info) else {
+                        log::warn!("Failed to create MIDI output connection");
+                        return;
+                    };
+
+                    log::info!("Creating dual MIDI connections");
+
+                    self.output_connection = (desc, OutputConnection::Midi(conn.clone()));
+                    self.keyboard_connection = Some(OutputConnection::Midi(conn));
                 }
                 OutputDescriptor::DummyOutput => {
+                    log::info!("Creating dual dummy output connections");
                     self.output_connection = (desc, OutputConnection::DummyOutput);
+                    self.keyboard_connection = Some(OutputConnection::DummyOutput);
                 }
             }
         }
@@ -199,33 +218,54 @@ impl OutputManager {
         &self.output_connection.1
     }
 
+    pub fn keyboard_connection(&self) -> &OutputConnection {
+        self.keyboard_connection.as_ref().unwrap_or_else(|| {
+            log::warn!("Keyboard connection not initialized, falling back to main connection");
+            &self.output_connection.1
+        })
+    }
+
     /// Open a dedicated MIDI output connection to the LUMI device.
     /// Matches by port name (the LUMI appears with identical names on input and output).
     /// This is independent of the main audio output connection.
     /// Returns `true` if a LUMI connection was successfully established, `false` otherwise.
     pub fn connect_lumi_by_port_name(&mut self, port_name: &str) -> bool {
-        log::info!("Attempting to connect LUMI SysEx output for input port: '{}'", port_name);
-        let Some(backend) = &self.midi_backend else { 
+        log::info!(
+            "Attempting to connect LUMI SysEx output for input port: '{}'",
+            port_name
+        );
+        let Some(backend) = &self.midi_backend else {
             log::error!("No MIDI backend available!");
-            return false; 
+            return false;
         };
         let outputs = backend.get_outputs();
-        
-        log::debug!("Available MIDI outputs: {}", 
-                   outputs.iter().map(|o| o.to_string()).collect::<Vec<_>>().join(", "));
+
+        log::debug!(
+            "Available MIDI outputs: {}",
+            outputs
+                .iter()
+                .map(|o| o.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
 
         // Only connect to LUMI output if the selected INPUT is actually a LUMI device.
         // Must contain "LUMI" in port name (case-insensitive) to be considered LUMI hardware.
         let port_name_lower = port_name.to_lowercase();
         if !port_name_lower.contains("lumi") {
-            log::info!("Selected input '{}' is not a LUMI device, disconnecting LUMI connection", port_name);
+            log::info!(
+                "Selected input '{}' is not a LUMI device, disconnecting LUMI connection",
+                port_name
+            );
             self.disconnect_lumi();
             return false;
         }
 
         // The LUMI port name on input and output might differ slightly; try exact match first,
         // then substring match (e.g. "LUMI Keys" appears in both directions).
-        let found = outputs.iter().find(|o| o.to_string() == port_name)
+        let found = outputs
+            .iter()
+            .find(|o| o.to_string() == port_name)
             .or_else(|| {
                 log::debug!("No exact match, trying substring match for '{}'", port_name);
                 outputs.iter().find(|o| {
@@ -253,9 +293,18 @@ impl OutputManager {
                 }
             }
         } else {
-            log::warn!("LUMI SysEx output not found for input port: '{}'", port_name);
-            log::warn!("Available outputs: {}", 
-                       outputs.iter().map(|o| o.to_string()).collect::<Vec<_>>().join(", "));
+            log::warn!(
+                "LUMI SysEx output not found for input port: '{}'",
+                port_name
+            );
+            log::warn!(
+                "Available outputs: {}",
+                outputs
+                    .iter()
+                    .map(|o| o.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
             return false;
         }
     }
@@ -286,24 +335,24 @@ impl OutputManager {
         // Store current state
         let was_connected = self.output_connection.0.is_not_dummy();
         let descriptor = self.output_connection.0.clone();
-        
+
         // Disconnect if connected
         if was_connected {
             self.connect(OutputDescriptor::DummyOutput);
         }
-        
+
         // Update the path in the descriptor
         let new_descriptor = match descriptor {
             #[cfg(feature = "synth")]
             OutputDescriptor::Synth(_) => OutputDescriptor::Synth(Some(new_path.to_path_buf())),
             _ => return Err("Cannot switch SoundFont on non-synth output".to_string()),
         };
-        
+
         // Reconnect if it was connected before
         if was_connected {
             self.connect(new_descriptor);
         }
-        
+
         Ok(())
     }
 
@@ -326,14 +375,14 @@ pub struct SoundFontEntry {
 /// Discover all .sf2 files in multiple folders
 pub fn discover_soundfonts(folders: &[PathBuf]) -> Vec<SoundFontEntry> {
     let mut soundfonts = Vec::new();
-    
+
     // Iterate through folders in order
     for folder in folders {
         if !folder.is_dir() {
             log::warn!("Skipping non-directory folder: {:?}", folder);
             continue;
         }
-        
+
         let entries = match fs::read_dir(folder) {
             Ok(entries) => entries,
             Err(e) => {
@@ -341,7 +390,7 @@ pub fn discover_soundfonts(folders: &[PathBuf]) -> Vec<SoundFontEntry> {
                 continue;
             }
         };
-        
+
         // Collect all .sf2 files from this folder
         let mut folder_soundfonts = Vec::new();
         for entry in entries {
@@ -352,16 +401,16 @@ pub fn discover_soundfonts(folders: &[PathBuf]) -> Vec<SoundFontEntry> {
                     continue;
                 }
             };
-            
+
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("sf2") {
                 folder_soundfonts.push(path);
             }
         }
-        
+
         // Sort files within this folder
         folder_soundfonts.sort();
-        
+
         // Create SoundFontEntry for each file with its source folder
         for path in folder_soundfonts {
             soundfonts.push(SoundFontEntry {
@@ -370,6 +419,6 @@ pub fn discover_soundfonts(folders: &[PathBuf]) -> Vec<SoundFontEntry> {
             });
         }
     }
-    
+
     soundfonts
 }

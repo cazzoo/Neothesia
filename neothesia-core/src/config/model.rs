@@ -113,6 +113,8 @@ pub struct SynthConfigV2 {
     pub audio_gain: f32,
     #[serde(default = "default_playback_gain")]
     pub playback_gain: f32,
+    #[serde(default = "default_keyboard_gain")]
+    pub keyboard_gain: f32,
 }
 
 impl From<SynthConfigV1> for SynthConfigV2 {
@@ -123,6 +125,7 @@ impl From<SynthConfigV1> for SynthConfigV2 {
             soundfont_index: None,
             audio_gain: v1.audio_gain,
             playback_gain: default_playback_gain(),
+            keyboard_gain: default_keyboard_gain(),
         }
     }
 }
@@ -135,6 +138,7 @@ impl Default for SynthConfigV2 {
             soundfont_index: None,
             audio_gain: default_audio_gain(),
             playback_gain: default_playback_gain(),
+            keyboard_gain: default_keyboard_gain(),
         }
     }
 }
@@ -158,7 +162,7 @@ impl SynthConfig {
             SynthConfig::V2(v2) => v2.soundfont_path.as_ref(),
         }
     }
-    
+
     pub fn set_soundfont_path(&mut self, path: Option<PathBuf>) {
         match self {
             SynthConfig::V1(v1) => {
@@ -169,7 +173,7 @@ impl SynthConfig {
             SynthConfig::V2(v2) => v2.soundfont_path = path,
         }
     }
-    
+
     pub fn soundfont_folders(&self) -> &Vec<PathBuf> {
         match self {
             SynthConfig::V1(_v1) => {
@@ -179,7 +183,7 @@ impl SynthConfig {
             SynthConfig::V2(v2) => &v2.soundfont_folders,
         }
     }
-    
+
     pub fn add_soundfont_folder(&mut self, folder: PathBuf) {
         match self {
             SynthConfig::V1(v1) => {
@@ -190,7 +194,7 @@ impl SynthConfig {
             SynthConfig::V2(v2) => v2.soundfont_folders.push(folder),
         }
     }
-    
+
     pub fn remove_soundfont_folder(&mut self, index: usize) {
         match self {
             SynthConfig::V1(v1) => {
@@ -207,7 +211,7 @@ impl SynthConfig {
             }
         }
     }
-    
+
     pub fn clear_soundfont_folders(&mut self) {
         match self {
             SynthConfig::V1(v1) => {
@@ -218,7 +222,7 @@ impl SynthConfig {
             SynthConfig::V2(v2) => v2.soundfont_folders.clear(),
         }
     }
-    
+
     pub fn set_soundfont_folders(&mut self, folders: Vec<PathBuf>) {
         match self {
             SynthConfig::V1(v1) => {
@@ -229,14 +233,14 @@ impl SynthConfig {
             SynthConfig::V2(v2) => v2.soundfont_folders = folders,
         }
     }
-    
+
     pub fn soundfont_index(&self) -> Option<usize> {
         match self {
             SynthConfig::V1(_) => None,
             SynthConfig::V2(v2) => v2.soundfont_index,
         }
     }
-    
+
     pub fn set_soundfont_index(&mut self, index: Option<usize>) {
         match self {
             SynthConfig::V1(v1) => {
@@ -407,6 +411,10 @@ fn default_audio_gain() -> f32 {
 }
 
 pub fn default_playback_gain() -> f32 {
+    1.0
+}
+
+pub fn default_keyboard_gain() -> f32 {
     1.0
 }
 

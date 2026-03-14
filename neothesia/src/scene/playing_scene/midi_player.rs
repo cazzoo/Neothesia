@@ -1,4 +1,4 @@
-use midi_file::midly::{MidiMessage, num::u4};
+use midi_file::midly::{num::u4, MidiMessage};
 
 use crate::{
     output_manager::OutputConnection,
@@ -39,7 +39,7 @@ impl MidiPlayer {
         // for timestamp 0 most likely all programs will be 0, so this should clean any leftovers
         // from previous songs
         player.send_midi_programs_for_timestamp(&player.playback.time());
-        player.update(Duration::ZERO);
+        player.update(Duration::ZERO, 1.0);
 
         player
     }
@@ -47,7 +47,8 @@ impl MidiPlayer {
     /// Get the channel config for a given event channel from the track configuration.
     /// Returns a default config (Listen mode, active) if the channel is not found.
     fn get_channel_config(track_config: &crate::song::TrackConfig, channel: u8) -> ChannelConfig {
-        track_config.channels
+        track_config
+            .channels
             .iter()
             .find(|cc| cc.channel == channel)
             .cloned()
@@ -67,14 +68,11 @@ impl MidiPlayer {
         &mut self.song
     }
 
-    /// When playing: returns midi events
-    ///
-    /// When paused: returns None
-    pub fn update(&mut self, delta: Duration) -> Vec<&midi_file::MidiEvent> {
+    pub fn update(&mut self, delta: Duration, midi_file_gain: f32) -> Vec<&midi_file::MidiEvent> {
         self.play_along.update();
 
         // Collect triggered notes before borrowing events
-        let triggered_notes: std::collections::HashMap<u8, std::collections::HashSet<u8>> = 
+        let triggered_notes: std::collections::HashMap<u8, std::collections::HashSet<u8>> =
             self.play_along.user_triggered_notes.clone();
 
         let all_events: Vec<_> = self.playback.update(delta);
@@ -97,6 +95,8 @@ impl MidiPlayer {
             .cloned()
             .collect();
 
+        self.output.set_gain(midi_file_gain);
+
         // Process audio for each event based on its channel configuration
         for event in &all_events {
             let config = &self.song.config.tracks[event.track_id];
@@ -116,22 +116,21 @@ impl MidiPlayer {
             // Only interactive channels participate in wait mode - non-interactive channels
             // (like drums, channel 9) play automatically without requiring user input
             if channel_config.interactive {
-                self.play_along.midi_event(MidiEventSource::File, &event.message);
+                self.play_along
+                    .midi_event(MidiEventSource::File, &event.message);
             }
 
             // Process audio based on mode
             match channel_config.mode {
                 ChannelMode::Listen => {
                     // Play MIDI audio
-                    self.output
-                        .midi_event(u4::new(channel), event.message);
+                    self.output.midi_event(u4::new(channel), event.message);
                 }
                 ChannelMode::Assist => {
                     // Play MIDI audio only if user has already triggered the note
                     // (to avoid double-playing and only play human-triggered notes)
                     if Self::should_skip_event_with_set(&triggered_notes, channel, &event.message) {
-                        self.output
-                            .midi_event(u4::new(channel), event.message);
+                        self.output.midi_event(u4::new(channel), event.message);
                     }
                 }
                 ChannelMode::Alone => {
@@ -145,13 +144,16 @@ impl MidiPlayer {
     }
 
     /// Helper to check if an event should be skipped, using a pre-collected set of triggered notes.
-    fn should_skip_event_with_set(triggered_notes: &std::collections::HashMap<u8, std::collections::HashSet<u8>>, 
-                                  channel: u8,
-                                  message: &midi_file::midly::MidiMessage) -> bool {
+    fn should_skip_event_with_set(
+        triggered_notes: &std::collections::HashMap<u8, std::collections::HashSet<u8>>,
+        channel: u8,
+        message: &midi_file::midly::MidiMessage,
+    ) -> bool {
         match message {
             midi_file::midly::MidiMessage::NoteOn { key, .. } => {
                 let note_id = key.as_int();
-                triggered_notes.get(&channel)
+                triggered_notes
+                    .get(&channel)
                     .map(|notes| notes.contains(&note_id))
                     .unwrap_or(false)
             }
@@ -283,23 +285,48 @@ pub enum MidiEventSource {
 
 type NoteId = u8;
 
-#[derive(Debug, Default)]
-struct PlayerStats {
+#[derive(Debug, Default, Clone)]
+pub struct PlayerStats {
     /// User notes that expired, or were simply wrong
-    wrong_notes: usize,
+    pub wrong_notes: usize,
     /// List of deltas of notes played early
-    played_early: Vec<Duration>,
+    pub played_early: Vec<Duration>,
     /// List of deltas of notes played late
-    played_late: Vec<Duration>,
+    pub played_late: Vec<Duration>,
+}
+
+/// Score data extracted from PlayerStats for display on score screen
+#[derive(Debug, Clone)]
+pub struct ScoreData {
+    /// Total number of note events (correct + missed)
+    pub total_notes: usize,
+    /// Number of correctly played notes
+    pub correct_notes: usize,
+    /// Number of missed/incorrect notes
+    pub missed_notes: usize,
+    /// Notes played too early (outside threshold)
+    pub too_early: usize,
+    /// Notes played too late (outside threshold)
+    pub too_late: usize,
+    /// Notes played within acceptable timing (perfect/good)
+    pub on_time: usize,
+    /// Accuracy percentage (0.0 - 100.0)
+    pub accuracy: f64,
+    /// Letter grade (S, A, B, C, D, F)
+    pub grade: String,
 }
 
 impl PlayerStats {
+    /// Calculate timing accuracy (ratio of notes with good timing vs all notes)
     #[allow(unused)]
     fn timing_acurracy(&self) -> f64 {
         let all = self.played_early.len() + self.played_late.len();
+        if all == 0 {
+            return 1.0;
+        }
         let early_count = self.count_too_early();
         let late_count = self.count_too_late();
-        (early_count + late_count) as f64 / all as f64
+        1.0 - ((early_count + late_count) as f64 / all as f64)
     }
 
     fn count_too_early(&self) -> usize {
@@ -332,6 +359,8 @@ pub struct PlayAlong {
 
     /// Notes required to proggres further in the song
     required_notes: HashMap<NoteId, NotePress>,
+    /// Total count of notes that became required during the song
+    total_required_notes: usize,
     /// List of user key press events that happened in last 500ms,
     /// used for play along leeway logic
     user_pressed_recently: HashMap<NoteId, NotePress>,
@@ -348,6 +377,7 @@ impl PlayAlong {
         Self {
             user_keyboard_range,
             required_notes: Default::default(),
+            total_required_notes: 0,
             user_pressed_recently: Default::default(),
             in_proggres_file_notes: Default::default(),
             user_triggered_notes: Default::default(),
@@ -407,6 +437,11 @@ impl PlayAlong {
                 // Ignore overlapping notes
                 if self.in_proggres_file_notes.contains(&note_id) {
                     return;
+                }
+
+                // Only count new required notes (not updates to existing notes)
+                if !self.required_notes.contains_key(&note_id) {
+                    self.total_required_notes += 1;
                 }
 
                 self.required_notes.insert(note_id, NotePress { timestamp });
@@ -472,5 +507,75 @@ impl PlayAlong {
             .get(&channel)
             .map(|notes| notes.contains(&note_id))
             .unwrap_or(false)
+    }
+
+    /// Get the current player statistics
+    pub fn stats(&self) -> &PlayerStats {
+        &self.stats
+    }
+
+    /// Convert play-along data to ScoreData for display
+    pub fn to_score_data(&self) -> ScoreData {
+        let played_early = self.stats.played_early.len();
+        let played_late = self.stats.played_late.len();
+        let played_notes = played_early + played_late;
+        let wrong_notes = self.stats.wrong_notes;
+
+        // Notes correctly played on first attempt (within timing threshold)
+        let too_early = self.stats.count_too_early();
+        let too_late = self.stats.count_too_late();
+        let on_time = (played_early - too_early) + (played_late - too_late);
+
+        // Notes correctly played (including those outside threshold)
+        let correct_notes = played_notes;
+
+        // Total required notes throughout the song (tracking cumulative count)
+        let total_required_notes = self.total_required_notes;
+
+        // Missed notes = total required - played correctly
+        let played_correctly = correct_notes.saturating_sub(wrong_notes);
+        let missed_notes = total_required_notes.saturating_sub(played_correctly);
+
+        // For score display, we show total required notes
+        let total_notes = total_required_notes;
+
+        // Accuracy based on notes actually played (correct / total played)
+        // If no notes were played, use 0% instead of dividing by zero
+        let accuracy = if played_notes > 0 {
+            let correct = (on_time + too_early + too_late) as f64;
+            (correct / played_notes as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        let grade = Self::calculate_grade(accuracy);
+
+        ScoreData {
+            total_notes,
+            correct_notes,
+            missed_notes,
+            too_early,
+            too_late,
+            on_time,
+            accuracy,
+            grade,
+        }
+    }
+
+    /// Calculate letter grade based on accuracy percentage
+    fn calculate_grade(accuracy: f64) -> String {
+        if accuracy >= 95.0 {
+            "S".to_string()
+        } else if accuracy >= 85.0 {
+            "A".to_string()
+        } else if accuracy >= 70.0 {
+            "B".to_string()
+        } else if accuracy >= 55.0 {
+            "C".to_string()
+        } else if accuracy >= 40.0 {
+            "D".to_string()
+        } else {
+            "F".to_string()
+        }
     }
 }

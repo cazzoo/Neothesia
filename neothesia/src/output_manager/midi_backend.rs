@@ -83,10 +83,18 @@ impl MidiOutputConnection {
     }
 
     pub fn send_sysex(&self, message: &[u8]) {
-        log::debug!("Sending MIDI SysEx: {:02X?} ({} bytes)", message, message.len());
+        log::debug!(
+            "Sending MIDI SysEx: {:02X?} ({} bytes)",
+            message,
+            message.len()
+        );
         let inner = &mut *self.inner.borrow_mut();
         if let Err(e) = inner.conn.send(message) {
-            log::error!("Failed to send MIDI SysEx: {:?} - Message: {:02X?}", e, message);
+            log::error!(
+                "Failed to send MIDI SysEx: {:?} - Message: {:02X?}",
+                e,
+                message
+            );
         }
     }
     pub fn stop_all(&self) {

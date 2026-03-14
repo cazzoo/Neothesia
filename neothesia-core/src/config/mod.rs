@@ -231,6 +231,26 @@ impl Config {
         }
     }
 
+    pub fn keyboard_gain(&self) -> f32 {
+        match &self.synth_config {
+            SynthConfig::V1(_v1) => 1.0, // Default full volume
+            SynthConfig::V2(v2) => v2.keyboard_gain,
+        }
+    }
+
+    pub fn set_keyboard_gain(&mut self, gain: f32) {
+        match &mut self.synth_config {
+            SynthConfig::V1(_v1) => {
+                let mut v2 = SynthConfigV2::default();
+                v2.audio_gain = self.audio_gain();
+                v2.playback_gain = self.playback_gain();
+                v2.keyboard_gain = gain.max(0.0).min(1.0);
+                self.synth_config = SynthConfig::V2(v2);
+            }
+            SynthConfig::V2(v2) => v2.keyboard_gain = gain.max(0.0).min(1.0),
+        }
+    }
+
     pub fn animation_offset(&self) -> f32 {
         self.waterfall.animation_offset
     }
