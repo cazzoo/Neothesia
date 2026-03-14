@@ -49,10 +49,19 @@ pub struct FilterState {
 }
 
 pub fn calculate_difficulty(metadata: &SongMetadata) -> u8 {
-    let note_density = metadata.note_count as f32 / metadata.duration_secs as f32;
+    // Handle edge case of zero duration
+    let note_density = if metadata.duration_secs > 0 {
+        metadata.note_count as f32 / metadata.duration_secs as f32
+    } else {
+        0.0
+    };
+    
     let track_factor = metadata.track_count as f32 / 10.0;
     let tempo_factor = (metadata.tempo_changes as f32 / 50.0).min(1.0);
+    
+    // Weighted score (0-10)
     let score = (note_density / 5.0) * 5.0 + track_factor * 3.0 + tempo_factor * 2.0;
+    
     score.clamp(1.0, 10.0) as u8
 }
 

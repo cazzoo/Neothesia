@@ -61,9 +61,12 @@ impl Context {
 
         let song_library_db = SongLibraryDatabase::with_default_path()
             .unwrap_or_else(|e| {
-                log::error!("Failed to initialize song library: {}", e);
-                SongLibraryDatabase::new(default_db_path())
-                    .expect("Failed to create song library database")
+                log::error!("Failed to initialize song library: {}. Song library features will be disabled.", e);
+                SongLibraryDatabase::new(std::path::PathBuf::from("/tmp/neothesia_song_library_disabled.db"))
+                    .unwrap_or_else(|_| {
+                        log::error!("Completely unable to initialize any song library database");
+                        std::process::exit(1);
+                    })
             });
 
         Self {
@@ -105,11 +108,13 @@ impl Context {
             .set_last_opened_song(Some(entry.file_path.clone()));
         self.config.save();
 
-        Some(crate::Song::new(midi))
+        let mut song = crate::Song::new(midi);
+        song.song_id = Some(song_id);
+        Some(song)
     }
 
     pub fn refresh_song_library(&self) -> Result<(), SongLibraryError> {
-        let song_dirs = self.config.song_directories().clone();
+        let song_dirs = self.config.song_directories();
         self.song_library_db.scan_directories(&song_dirs)?;
         Ok(())
     }

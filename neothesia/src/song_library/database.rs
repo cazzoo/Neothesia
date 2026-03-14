@@ -241,16 +241,20 @@ impl SongRepository for SqliteSongRepository {
     fn upsert_song(&self, metadata: &SongMetadata, file_path: &Path) -> Result<i64> {
         let conn = self.get_connection()?;
 
-        let file_metadata = std::fs::metadata(file_path)
-            .map_err(|e| DatabaseError::InitializationFailed(format!("Failed to get file metadata: {}", e)))?;
-
-        let file_size = file_metadata.len();
-        let file_modified = file_metadata
-            .modified()
-            .map_err(|e| DatabaseError::InitializationFailed(format!("Failed to get file modified time: {}", e)))?
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|e| DatabaseError::InitializationFailed(format!("Failed to convert file time: {}", e)))?
-            .as_secs() as i64;
+        let (file_size, file_modified) = match std::fs::metadata(file_path) {
+            Ok(file_metadata) => {
+                let modified = file_metadata
+                    .modified()
+                    .map_err(|e| DatabaseError::InitializationFailed(format!("Failed to get file modified time: {}", e)))?
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_err(|e| DatabaseError::InitializationFailed(format!("Failed to convert file time: {}", e)))?
+                    .as_secs() as i64;
+                (file_metadata.len(), modified)
+            }
+            Err(_) => {
+                (0, Utc::now().timestamp())
+            }
+        };
 
         let now = Utc::now().timestamp();
 
@@ -287,7 +291,11 @@ impl SongRepository for SqliteSongRepository {
             ],
         )?;
 
-        let song_id: i64 = conn.last_insert_rowid();
+        let song_id: i64 = conn.query_row(
+            "SELECT id FROM songs WHERE file_path = ?1",
+            params![file_path.to_string_lossy()],
+            |row| row.get(0),
+        )?;
 
         conn.execute(
             "INSERT OR IGNORE INTO song_stats (song_id, play_count) VALUES (?1, 0)",

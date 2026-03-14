@@ -1,5 +1,6 @@
 use nuon::TextJustify;
 use std::hash::Hash;
+use std::sync::Arc;
 
 use crate::{context::Context, song::Song, utils::BoxFuture};
 use crate::song_library::{SongEntry, difficulty_label, SongRepository};
@@ -35,6 +36,9 @@ impl super::MenuScene {
                 nuon::translate().x(-w - padding).add_to_current(ui);
 
                 if neo_btn_icon(ui, w, h, icons::repeat_icon()) {
+                    if let Err(e) = ctx.refresh_song_library() {
+                        log::error!("Failed to refresh song library: {}", e);
+                    }
                     self.state.refresh_song_library(&ctx.song_library_db);
                 }
 
@@ -53,7 +57,7 @@ impl super::MenuScene {
             .scissor_size(win_w, (win_h - bottom_bar_h).max(0.0))
             .scroll(self.song_library_scroll)
             .build(ui, |ui| {
-                if self.state.song_library_loading {
+                if self.state.is_loading {
                     nuon::translate()
                         .x(nuon::center_x(win_w, 200.0))
                         .y(margin_top + 100.0)
@@ -126,14 +130,14 @@ impl super::MenuScene {
                         }
                         
                         let row_end = (entry_idx + columns).min(total_entries);
-                        
+
                         // Clone entries for this row before entering the closure
-                        let row_entries: Vec<SongEntry> = self.state.song_library_entries[entry_idx..row_end].to_vec();
+                        let row_entries: Vec<SongEntry> = self.state.song_library_entries[entry_idx..row_end].iter().cloned().collect();
                         entry_idx = row_end;
 
                         nuon::translate().build(ui, |ui| {
                             for entry in row_entries {
-                                self.song_card(ctx, ui, &entry, card_w, card_h);
+                                self.song_card(&*ctx, ui, &entry, card_w, card_h);
                                 nuon::translate().x(card_w + gap).add_to_current(ui);
                             }
                         });
@@ -245,8 +249,12 @@ impl super::MenuScene {
 
 fn load_song_from_library(id: i64, data: &mut UiState) -> BoxFuture<MsgFn> {
     data.is_loading = true;
-    on_async(load_song_from_library_fut(id), |res, data, _ctx| {
-        if let Some((midi, song_id)) = res {
+    on_async(load_song_from_library_fut(id), move |res, data, ctx| {
+        if let Some((midi, song_id, file_path)) = res {
+            ctx.config
+                .set_last_opened_song(Some(file_path.clone()));
+            ctx.config.save();
+            
             let mut song = Song::new(midi);
             song.song_id = Some(song_id);
             data.song = Some(song);
@@ -255,15 +263,16 @@ fn load_song_from_library(id: i64, data: &mut UiState) -> BoxFuture<MsgFn> {
     })
 }
 
-async fn load_song_from_library_fut(id: i64) -> Option<(midi_file::MidiFile, i64)> {
+async fn load_song_from_library_fut(id: i64) -> Option<(midi_file::MidiFile, i64, std::path::PathBuf)> {
     let db = crate::song_library::init_song_library().ok()?;
-
     let entry = db.get_song(id).ok()??;
+    let file_path = entry.file_path.clone();
+    let file_path_for_return = file_path.clone();
 
     let thread = crate::utils::task::thread::spawn("midi-loader".into(), move || {
-        midi_file::MidiFile::new(&entry.file_path).ok()
+        midi_file::MidiFile::new(&file_path).ok()
     });
 
     let midi_file = thread.join().await.ok().flatten()?;
-    Some((midi_file, id))
+    Some((midi_file, id, file_path_for_return))
 }

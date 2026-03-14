@@ -50,7 +50,6 @@ pub struct UiState {
     pub song_library_scroll: f32,
     pub song_library_entries: Vec<crate::song_library::SongEntry>,
     pub song_library_filter: String,
-    pub song_library_loading: bool,
 }
 
 impl UiState {
@@ -82,7 +81,6 @@ impl UiState {
             song_library_scroll: 0.0,
             song_library_entries: Vec::new(),
             song_library_filter: String::new(),
-            song_library_loading: false,
         }
     }
 
@@ -115,12 +113,10 @@ impl UiState {
     }
 
     pub fn load_song_library(&mut self, db: &crate::song_library::SongLibraryDatabase) {
-        self.song_library_loading = true;
         match db.list_songs(&crate::song_library::SortPreference::default(), &crate::song_library::FilterState::default()) {
             Ok(entries) => self.song_library_entries = entries,
             Err(e) => eprintln!("Failed to load song library: {}", e),
         }
-        self.song_library_loading = false;
     }
 
     pub fn refresh_song_library(&mut self, db: &crate::song_library::SongLibraryDatabase) {

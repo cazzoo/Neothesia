@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::{
     context::Context,
     scene::menu_scene::{MsgFn, Popup, icons, neo_btn_icon, on_async},
-    song_library::SongScanner,
+    song_library::{SongScanner, SongRepository},
     utils::BoxFuture,
 };
 use nuon::TextJustify;
@@ -499,12 +499,13 @@ impl super::MenuScene {
         rows: &dyn Fn(&mut nuon::Ui, nuon::SettingsRow<'_>),
         spacer: &dyn Fn(&mut nuon::Ui),
     ) {
-        let scanner = SongScanner::new();
-        let song_dirs = ctx.config.song_directories();
-        
-        let total_song_count: usize = song_dirs.iter()
-            .map(|dir| scanner.scan_directories(&[dir.clone()]).len())
-            .sum();
+        let total_song_count = match ctx.song_library_db.song_count() {
+            Ok(count) => count,
+            Err(e) => {
+                log::error!("Failed to get song count from database: {}", e);
+                0
+            }
+        };
 
         nuon::settings_row()
             .title("Total Songs")
@@ -531,21 +532,20 @@ impl super::MenuScene {
             })
             .build(ui, rows);
 
+        let song_dirs = ctx.config.song_directories();
         let dir_count = song_dirs.len();
         for index in 0..dir_count {
             let dir_path = song_dirs.get(index).unwrap();
             let dir_name = dir_path.file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("Unknown");
-            
-            let song_count = scanner.scan_directories(&[dir_path.clone()]).len();
-            
+
             spacer(ui);
-            
+
             let idx = index;
             nuon::settings_row()
                 .title(format!("Directory {}", idx + 1))
-                .subtitle(format!("{} ({} songs)", dir_name, song_count))
+                .subtitle(dir_name.to_string())
                 .body(|ui, row_w, row_h| {
                     let w = 75.0;
                     let h = 31.0;
@@ -557,7 +557,6 @@ impl super::MenuScene {
                         .build(ui)
                     {
                         ctx.config.remove_song_directory(idx);
-                        ctx.config.save();
                     }
                 })
                 .build(ui, rows);
